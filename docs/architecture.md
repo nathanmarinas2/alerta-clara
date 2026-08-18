@@ -128,7 +128,8 @@ En orden:
 3. Registro de consentimiento, política de privacidad y revisión jurídica de RGPD.
 4. Revisión jurídica y de licencia de cada dataset/feed antes de redistribuirlo.
 5. Proxy de salida con pinning DNS y límites de transferencia para el sidecar de navegador.
-6. Adaptador de Telegram para probar el core y flujo asíncrono con RQ.
+6. Adaptador de Telegram para probar el core; los endpoints actuales ejecutan el pipeline en un hilo
+   aislado y no mantienen un worker RQ sin consumidor.
 7. Trámite y adaptador de WhatsApp Cloud API; webhook que solo encola y responde 200.
 
 ## OpenAI

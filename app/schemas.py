@@ -185,3 +185,11 @@ class HealthResponse(BaseModel):
     browser_scanner: str = "disabled"
     analyses_last_24h: int = 0
     pending_reviews: int = 0
+
+
+class LivenessResponse(BaseModel):
+    """Respuesta mínima pública: no expone métricas operativas ni estado de feeds."""
+
+    status: str
+    database: str
+    model_configured: bool

@@ -38,6 +38,7 @@ from app.schemas import (
     Channel,
     FeedbackRequest,
     HealthResponse,
+    LivenessResponse,
     ReviewQueueItem,
     ReviewResolution,
     ReviewResolutionRequest,
@@ -229,13 +230,13 @@ def privacy() -> HTMLResponse:
     )
 
 
-@app.get("/health", response_model=HealthResponse, tags=["operación"])
+@app.get("/health", response_model=LivenessResponse, tags=["operación"])
 async def health(
     db: Annotated[Session, Depends(get_db)],
     settings: Annotated[Settings, Depends(get_settings)],
-) -> HealthResponse:
+) -> LivenessResponse:
     db.execute(text("SELECT 1"))
-    return HealthResponse(
+    return LivenessResponse(
         status="ok",
         database="ok",
         model_configured=bool(settings.openai_api_key),

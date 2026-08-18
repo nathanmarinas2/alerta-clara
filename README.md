@@ -161,14 +161,15 @@ además un proxy de salida con pinning DNS.
 ## Endpoints principales
 
 - `GET /health`
-- `GET /metrics` (métricas agregadas para operaciones)
+- `GET /ready` (estado detallado, protegido con `X-Health-Key` en producción)
+- `GET /metrics` (métricas agregadas; protegido con `X-Health-Key` en producción)
 - `POST /api/v1/analyze/json`
 - `POST /api/v1/analyze` (formulario, permite captura)
 - `POST /api/v1/analyses/{id}/feedback`
 - `GET /api/v1/analyses/{id}/stix` (exporta observables redactados en STIX 2.1)
 - `GET /api/v1/reviews` (requiere token de revisión)
 - `POST /api/v1/reviews/{id}/resolve` (requiere token de revisión)
-- `GET /docs` (OpenAPI)
+- `GET /docs` (OpenAPI; desactivado en producción)
 
 Ejemplo:
 
