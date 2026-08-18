@@ -1,0 +1,34 @@
+{
+  "sources": [
+    {
+      "name": "SpaPhish v5",
+      "doi": "10.17632/hz2d6gz7pc.5",
+      "url": "https://data.mendeley.com/datasets/hz2d6gz7pc/5",
+      "download_url": "https://data.mendeley.com/public-files/datasets/hz2d6gz7pc/files/f796c8e2-3768-4c2d-8b73-48f0d7771de5/file_downloaded",
+      "license": "CC BY 4.0",
+      "language": "es",
+      "records": 1395,
+      "labels": {
+        "phishing": 731,
+        "legitimate": 664
+      },
+      "privacy": "Anonymized by the dataset authors; URLs are replaced before model training.",
+      "accessed_at": "2026-08-18"
+    },
+    {
+      "name": "SMS Spam Mexico",
+      "url": "https://www.kaggle.com/datasets/aldoivan/sms-spam-mexico-dataset-en-espaol-mexicano",
+      "download_url": "https://www.kaggle.com/api/v1/datasets/download/aldoivan/sms-spam-mexico-dataset-en-espaol-mexicano",
+      "license": "CC BY-SA 4.0",
+      "language": "es-MX",
+      "records": 300,
+      "labels": {
+        "spam": 165,
+        "ham": 135
+      },
+      "privacy": "Used only for domain adaptation; inspect the source license and labels before redistribution.",
+      "quality_note": "Small research corpus; not sufficient as a production ground truth by itself.",
+      "accessed_at": "2026-08-18"
+    }
+  ]
+}

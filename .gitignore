@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+.env
+*.db
+*.sqlite3
+data/external/
+.coverage
+htmlcov/
+node_modules/
+uvicorn.*.log

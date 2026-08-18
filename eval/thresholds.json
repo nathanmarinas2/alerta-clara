@@ -1,0 +1,5 @@
+{
+  "min_scam_recall": 0.9,
+  "max_false_alarm_rate": 0.1,
+  "min_exact_agreement": 0.9
+}

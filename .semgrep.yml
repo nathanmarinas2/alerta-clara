@@ -1,0 +1,6 @@
+rules:
+  - id: no-hardcoded-review-secrets
+    languages: [python]
+    message: Do not hardcode review or provider credentials.
+    severity: ERROR
+    pattern-regex: "(?i)(review_api_key|openai_api_key|scanner_token)\\s*=\\s*['\"][^'\"]+['\"]"

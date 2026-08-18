@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "alerta-clara"
+version = "0.2.0"
+description = "Asistente antiestafas con veredicto determinista y explicaciones claras."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi>=0.116,<1",
+  "httpx>=0.28,<1",
+  "alembic>=1.16,<2",
+  "openai>=1.109,<3",
+  "opentelemetry-api>=1.36,<2",
+  "pillow>=11,<13",
+  "psycopg[binary]>=3.2,<4",
+  "pydantic-settings>=2.10,<3",
+  "python-multipart>=0.0.20,<1",
+  "redis>=6.4,<7",
+  "rapidocr-onnxruntime>=1.4,<2",
+  "scikit-learn>=1.5,<2",
+  "sqlalchemy>=2.0,<3",
+  "tldextract>=5.3,<6",
+  "uvicorn[standard]>=0.35,<1",
+  "zxing-cpp>=2.3,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.4,<9",
+  "pytest-asyncio>=1.1,<2",
+  "pytest-cov>=6,<7",
+  "mypy>=1.17,<2",
+  "bandit>=1.8,<2",
+  "ruff>=0.12,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]

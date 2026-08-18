@@ -1,0 +1,56 @@
+{
+  "accuracy": 0.9528,
+  "precision": 0.9851,
+  "recall": 0.9041,
+  "f1": 0.9429,
+  "roc_auc": 0.9892,
+  "average_precision": 0.9875,
+  "thresholds": {
+    "0.7": {
+      "precision": 1.0,
+      "recall": 0.7466
+    },
+    "0.8": {
+      "precision": 1.0,
+      "recall": 0.6301
+    },
+    "0.9": {
+      "precision": 1.0,
+      "recall": 0.4795
+    }
+  },
+  "confusion_matrix": {
+    "labels": [
+      "legitimate",
+      "phishing",
+      "spam"
+    ],
+    "matrix": [
+      [
+        159,
+        1,
+        0
+      ],
+      [
+        12,
+        134,
+        0
+      ],
+      [
+        0,
+        2,
+        31
+      ]
+    ]
+  },
+  "examples": {
+    "total": 1693,
+    "train": 1354,
+    "test": 339
+  },
+  "dataset": "SpaPhish v5 + SMS Spam Mexico (CC BY / CC BY-SA)",
+  "dataset_sha256": "9dc5c4fa0302b6519d62473ba747f3cc77d6429d46973cfdc80d99399c9f4f86",
+  "model_version": "spaphish-sms-char-tfidf-logreg-v3",
+  "trained_at": "2026-08-18T16:07:29.317699+00:00",
+  "warning": "Evaluación aleatoria estratificada; no sustituye una prueba temporal y de SMS real."
+}

@@ -1,0 +1,49 @@
+name: quality-and-security
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install project
+        run: python -m pip install --upgrade pip && pip install ".[dev]"
+      - name: Tests
+        run: pytest --cov=app --cov-report=term-missing --cov-fail-under=70
+      - name: Ruff
+        run: ruff check app migrations tests
+      - name: Type checking
+        run: >-
+          mypy --follow-imports=skip --ignore-missing-imports
+          app/services/text_normalization.py app/services/fingerprint.py
+          app/services/google_safe_browsing.py
+      - name: Bandit
+        run: bandit -r app -ll
+      - name: Dependency audit
+        run: pip install pip-audit && pip-audit
+      - name: Semgrep baseline
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: p/python
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build --tag alerta-clara:ci .
+      - name: Filesystem vulnerability scan
+        uses: anchore/scan-action@v6
+        with:
+          image: alerta-clara:ci
+          fail-build: true
+          severity-cutoff: high

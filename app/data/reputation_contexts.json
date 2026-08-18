@@ -1,0 +1,20 @@
+{
+  "source": "MISP warning-list semantics; locally reviewed subset",
+  "version": "2026.08.1",
+  "shared_infrastructure": [
+    "appspot.com",
+    "blob.core.windows.net",
+    "docs.google.com",
+    "drive.google.com",
+    "firebaseapp.com",
+    "forms.gle",
+    "github.io",
+    "notion.site",
+    "onedrive.live.com",
+    "pages.dev",
+    "sharepoint.com",
+    "sites.google.com",
+    "web.app",
+    "workers.dev"
+  ]
+}

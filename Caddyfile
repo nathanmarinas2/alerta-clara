@@ -1,0 +1,19 @@
+{$DOMAIN:localhost} {
+    @internal_paths path /metrics /ready /docs /docs/* /redoc /redoc/* /openapi.json
+    respond @internal_paths 404
+
+    encode zstd gzip
+    request_body {
+        max_size 6MB
+    }
+    reverse_proxy app:8000
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "no-referrer"
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        -Server
+    }
+}

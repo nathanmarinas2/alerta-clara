@@ -1,0 +1,28 @@
+{
+  "providers": [
+    {
+      "name": "urlhaus",
+      "url": "https://urlhaus.abuse.ch/downloads/csv_online/",
+      "format": "csv",
+      "indicator_type": "url",
+      "trust_tier": 3,
+      "hard_rule_eligible": false,
+      "timeout_seconds": 30,
+      "ttl_seconds": 1800,
+      "failure_policy": "keep_last_snapshot",
+      "level_mapping": {"active": "malicious", "inactive": "info"}
+    },
+    {
+      "name": "openphish",
+      "url": "https://raw.githubusercontent.com/openphish/public_feed/main/feed.txt",
+      "format": "text",
+      "indicator_type": "url",
+      "trust_tier": 2,
+      "hard_rule_eligible": false,
+      "timeout_seconds": 30,
+      "ttl_seconds": 1800,
+      "failure_policy": "keep_last_snapshot",
+      "level_mapping": {"active": "malicious", "inactive": "info"}
+    }
+  ]
+}
