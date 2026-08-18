@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 
 @dataclass(frozen=True)
@@ -27,6 +27,7 @@ class ConnectorObservation:
     retryable: bool = False
 
 
+@runtime_checkable
 class Connector(Protocol):
     name: str
     version: str

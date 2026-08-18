@@ -3,7 +3,17 @@
     "name": "CaixaBank",
     "category": "bank",
     "aliases": ["caixabank", "la caixa"],
-    "official_domains": ["caixabank.es"],
+    "official_domains": [
+      "caixabank.es",
+      "caixabank.com",
+      "caixabank.cat",
+      "caixabankpay.com",
+      "caixabankresearch.com",
+      "caixabankconsumer.es",
+      "grupocaixabank.com",
+      "grupocaixabank.es",
+      "caixabankcareers.com"
+    ],
     "official_numbers": [
       {
         "number": "900404090",
@@ -17,7 +27,14 @@
     "name": "BBVA",
     "category": "bank",
     "aliases": ["bbva"],
-    "official_domains": ["bbva.es"],
+    "official_domains": [
+      "bbva.es",
+      "bbva.com",
+      "bbvanet.com",
+      "bbvavalores.com",
+      "bbvaopenmind.com",
+      "creandooportunidades.com"
+    ],
     "official_numbers": [
       {
         "number": "900102801",
@@ -31,7 +48,13 @@
     "name": "Banco Santander",
     "category": "bank",
     "aliases": ["santander", "banco santander"],
-    "official_domains": ["bancosantander.es", "santander.com"],
+    "official_domains": [
+      "bancosantander.es",
+      "santander.com",
+      "santander.es",
+      "gruposantander.com",
+      "santanderconsumer.es"
+    ],
     "official_numbers": [
       {
         "number": "900811381",
@@ -45,7 +68,12 @@
     "name": "Banco Sabadell",
     "category": "bank",
     "aliases": ["sabadell", "banco sabadell"],
-    "official_domains": ["bancsabadell.com"],
+    "official_domains": [
+      "bancsabadell.com",
+      "bancosabadell.com",
+      "bancsabadell.es",
+      "bancosabadell.es"
+    ],
     "official_numbers": [
       {
         "number": "900700010",
@@ -59,7 +87,11 @@
     "name": "Bankinter",
     "category": "bank",
     "aliases": ["bankinter"],
-    "official_domains": ["bankinter.com"],
+    "official_domains": [
+      "bankinter.com",
+      "bankinter.es",
+      "bankinterconsumerfinance.com"
+    ],
     "official_numbers": [
       {
         "number": "916578800",
@@ -73,7 +105,11 @@
     "name": "ING",
     "category": "bank",
     "aliases": ["ing"],
-    "official_domains": ["ing.es"],
+    "official_domains": [
+      "ing.es",
+      "ing.com",
+      "ingdirect.es"
+    ],
     "official_numbers": [
       {
         "number": "912066666",
@@ -87,7 +123,10 @@
     "name": "Abanca",
     "category": "bank",
     "aliases": ["abanca"],
-    "official_domains": ["abanca.com"],
+    "official_domains": [
+      "abanca.com",
+      "abanca.es"
+    ],
     "official_numbers": [
       {
         "number": "900815010",
@@ -101,7 +140,11 @@
     "name": "Unicaja",
     "category": "bank",
     "aliases": ["unicaja", "unicaja banco"],
-    "official_domains": ["unicajabanco.es"],
+    "official_domains": [
+      "unicajabanco.es",
+      "unicajabanco.com",
+      "unicaja.es"
+    ],
     "official_numbers": [
       {
         "number": "900151948",
@@ -115,21 +158,31 @@
     "name": "Kutxabank",
     "category": "bank",
     "aliases": ["kutxabank"],
-    "official_domains": ["kutxabank.es"],
+    "official_domains": [
+      "kutxabank.es",
+      "kutxabank.com"
+    ],
     "official_numbers": []
   },
   {
     "name": "Ibercaja",
     "category": "bank",
     "aliases": ["ibercaja"],
-    "official_domains": ["ibercaja.es"],
+    "official_domains": [
+      "ibercaja.es",
+      "ibercaja.com"
+    ],
     "official_numbers": []
   },
   {
     "name": "Agencia Tributaria",
     "category": "government",
     "aliases": ["aeat", "agencia tributaria", "hacienda"],
-    "official_domains": ["agenciatributaria.es"],
+    "official_domains": [
+      "agenciatributaria.es",
+      "agenciatributaria.gob.es",
+      "aeat.es"
+    ],
     "official_numbers": [
       {
         "number": "915548770",
@@ -143,7 +196,10 @@
     "name": "Seguridad Social",
     "category": "government",
     "aliases": ["seguridad social", "inss"],
-    "official_domains": ["seg-social.es"],
+    "official_domains": [
+      "seg-social.es",
+      "seg-social.gob.es"
+    ],
     "official_numbers": [
       {
         "number": "915421176",
@@ -157,7 +213,10 @@
     "name": "DGT",
     "category": "government",
     "aliases": ["dgt", "direccion general de trafico", "tráfico"],
-    "official_domains": ["dgt.es"],
+    "official_domains": [
+      "dgt.es",
+      "dgt.gob.es"
+    ],
     "official_numbers": [
       {
         "number": "060",
@@ -171,7 +230,10 @@
     "name": "SEPE",
     "category": "government",
     "aliases": ["sepe", "servicio publico de empleo"],
-    "official_domains": ["sepe.es"],
+    "official_domains": [
+      "sepe.es",
+      "sepe.gob.es"
+    ],
     "official_numbers": [
       {
         "number": "060",
@@ -185,7 +247,10 @@
     "name": "Correos",
     "category": "delivery",
     "aliases": ["correos"],
-    "official_domains": ["correos.es"],
+    "official_domains": [
+      "correos.es",
+      "correos.com"
+    ],
     "official_numbers": [
       {
         "number": "915197197",
@@ -199,98 +264,146 @@
     "name": "Celeritas",
     "category": "delivery",
     "aliases": ["celeritas", "celeritas transporte", "punto celeritas"],
-    "official_domains": ["celeritastransporte.com"],
+    "official_domains": [
+      "celeritastransporte.com",
+      "celeritas.es"
+    ],
     "official_numbers": []
   },
   {
     "name": "Endesa",
     "category": "utility",
     "aliases": ["endesa"],
-    "official_domains": ["endesa.com"],
+    "official_domains": [
+      "endesa.com",
+      "endesa.es",
+      "endesaclientes.com"
+    ],
     "official_numbers": []
   },
   {
     "name": "Iberdrola",
     "category": "utility",
     "aliases": ["iberdrola"],
-    "official_domains": ["iberdrola.es"],
+    "official_domains": [
+      "iberdrola.es",
+      "iberdrola.com",
+      "iberdrolaclientes.es"
+    ],
     "official_numbers": []
   },
   {
     "name": "Naturgy",
     "category": "utility",
     "aliases": ["naturgy"],
-    "official_domains": ["naturgy.es"],
+    "official_domains": [
+      "naturgy.es",
+      "naturgy.com",
+      "naturgyclientes.es"
+    ],
     "official_numbers": []
   },
   {
     "name": "SEUR",
     "category": "delivery",
     "aliases": ["seur"],
-    "official_domains": ["seur.com"],
+    "official_domains": [
+      "seur.com",
+      "seur.es"
+    ],
     "official_numbers": []
   },
   {
     "name": "MRW",
     "category": "delivery",
     "aliases": ["mrw"],
-    "official_domains": ["mrw.es"],
+    "official_domains": [
+      "mrw.es",
+      "mrw.com"
+    ],
     "official_numbers": []
   },
   {
     "name": "GLS",
     "category": "delivery",
     "aliases": ["gls"],
-    "official_domains": ["gls-spain.es"],
+    "official_domains": [
+      "gls-spain.es",
+      "gls-group.eu",
+      "gls-spain.com"
+    ],
     "official_numbers": []
   },
   {
     "name": "DHL",
     "category": "delivery",
     "aliases": ["dhl"],
-    "official_domains": ["dhl.com"],
+    "official_domains": [
+      "dhl.com",
+      "dhl.es"
+    ],
     "official_numbers": []
   },
   {
     "name": "Correos Express",
     "category": "delivery",
     "aliases": ["correos express"],
-    "official_domains": ["correosexpress.com"],
+    "official_domains": [
+      "correosexpress.com",
+      "correosexpress.es"
+    ],
     "official_numbers": []
   },
   {
     "name": "Amazon",
     "category": "retail",
     "aliases": ["amazon", "amazon.es"],
-    "official_domains": ["amazon.es", "amazon.com"],
+    "official_domains": [
+      "amazon.es",
+      "amazon.com"
+    ],
     "official_numbers": []
   },
   {
     "name": "Vinted",
     "category": "marketplace",
     "aliases": ["vinted"],
-    "official_domains": ["vinted.es"],
+    "official_domains": [
+      "vinted.es",
+      "vinted.com"
+    ],
     "official_numbers": []
   },
   {
     "name": "Wallapop",
     "category": "marketplace",
     "aliases": ["wallapop"],
-    "official_domains": ["wallapop.com"],
+    "official_domains": [
+      "wallapop.com",
+      "wallapop.es"
+    ],
     "official_numbers": []
   },
   {
     "name": "Netflix",
     "category": "streaming",
     "aliases": ["netflix"],
-    "official_domains": ["netflix.com"],
+    "official_domains": [
+      "netflix.com",
+      "netflix.es"
+    ],
     "official_numbers": []
   },
   {
     "name": "Movistar",
     "category": "telecom",
     "aliases": ["movistar", "telefonica", "telefónica"],
-    "official_domains": ["movistar.es", "telefonica.com"],
+    "official_domains": [
+      "movistar.es",
+      "telefonica.com",
+      "telefonica.es",
+      "movistar.com"
+    ],
     "official_numbers": [
       {
         "number": "1004",
@@ -304,7 +417,10 @@
     "name": "Orange",
     "category": "telecom",
     "aliases": ["orange"],
-    "official_domains": ["orange.es"],
+    "official_domains": [
+      "orange.es",
+      "orange.com"
+    ],
     "official_numbers": [
       {
         "number": "1470",
@@ -318,7 +434,10 @@
     "name": "Vodafone",
     "category": "telecom",
     "aliases": ["vodafone"],
-    "official_domains": ["vodafone.es"],
+    "official_domains": [
+      "vodafone.es",
+      "vodafone.com"
+    ],
     "official_numbers": [
       {
         "number": "22123",
@@ -332,7 +451,10 @@
     "name": "Yoigo",
     "category": "telecom",
     "aliases": ["yoigo"],
-    "official_domains": ["yoigo.com"],
+    "official_domains": [
+      "yoigo.com",
+      "yoigo.es"
+    ],
     "official_numbers": [
       {
         "number": "622",
@@ -346,7 +468,10 @@
     "name": "AliExpress",
     "category": "retail",
     "aliases": ["aliexpress"],
-    "official_domains": ["aliexpress.com"],
+    "official_domains": [
+      "aliexpress.com",
+      "aliexpress.es"
+    ],
     "official_numbers": []
   }
 ]
