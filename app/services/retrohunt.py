@@ -58,10 +58,10 @@ def run_retro_hunt(db: Session) -> dict[str, int]:
     indicators = db.scalars(
         select(ThreatIndicator).where(
             ThreatIndicator.status == "active",
-            ThreatIndicator.indicator_type == "domain",
             ThreatIndicator.value_public.is_not(None),
         )
     ).all()
+    from app.entities import registrable_domain
     from app.services.threat_intel import load_provider_config
 
     provider_ttls = {
@@ -81,7 +81,14 @@ def run_retro_hunt(db: Session) -> dict[str, int]:
         age = max(0, int((datetime.now(UTC) - fetched_at).total_seconds()))
         fresh = age <= provider_ttls.get(indicator.provider, 0)
         if fresh and indicator.value_public:
-            providers_by_domain[indicator.value_public].add(indicator.provider)
+            domain = indicator.value_public
+            if indicator.indicator_type == "url":
+                extracted = registrable_domain(indicator.value_public)
+                if extracted:
+                    domain = extracted
+                else:
+                    continue
+            providers_by_domain[domain].add(indicator.provider)
 
     if providers_by_domain:
         suspicious_artifacts = db.scalars(

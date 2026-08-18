@@ -23,7 +23,7 @@ def test_health_and_analysis_round_trip() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["level"] == "estafa"
-    assert payload["meta"]["ruleset_version"] == "2026.08.3"
+    assert payload["meta"]["ruleset_version"] == "2026.08.4"
     assert payload["meta"]["model_version"] == "local-extractor-v1"
     assert len(payload["id"]) == 36
     assert {rule["rule_id"] for rule in payload["rules"]} == {
@@ -33,6 +33,12 @@ def test_health_and_analysis_round_trip() -> None:
     }
     assert payload["incident_steps"]
     assert all({"status", "source", "version"} <= signal.keys() for signal in payload["signals"])
+    assert payload["official_verification"] is not None
+    assert payload["official_verification"]["entity_name"] == "CaixaBank"
+    primary_phone = payload["official_verification"]["official_numbers"][0]
+    assert primary_phone["number"] == "900404090"
+    assert primary_phone["source"].startswith("https://www.caixabank.es")
+    assert primary_phone["verified_at"] == "2026-08-18"
 
 
 def test_form_requires_text_or_image() -> None:

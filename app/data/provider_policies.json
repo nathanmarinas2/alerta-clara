@@ -23,6 +23,18 @@
       "ttl_seconds": 1800,
       "failure_policy": "keep_last_snapshot",
       "level_mapping": {"active": "malicious", "inactive": "info"}
+    },
+    {
+      "name": "urlhaus_hosts",
+      "url": "https://urlhaus.abuse.ch/downloads/hostfile/",
+      "format": "hostfile",
+      "indicator_type": "domain",
+      "trust_tier": 3,
+      "hard_rule_eligible": false,
+      "timeout_seconds": 30,
+      "ttl_seconds": 1800,
+      "failure_policy": "keep_last_snapshot",
+      "level_mapping": {"active": "malicious", "inactive": "info"}
     }
   ]
 }

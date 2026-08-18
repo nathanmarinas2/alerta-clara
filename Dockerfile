@@ -8,9 +8,10 @@ WORKDIR /srv/app
 
 RUN groupadd --system alerta && useradd --system --gid alerta --home-dir /srv/app alerta
 
-COPY pyproject.toml README.md ./
+COPY requirements-runtime.lock pyproject.toml README.md ./
+COPY models ./models
 COPY app ./app
-RUN python -m pip install .
+RUN python -m pip install --no-deps -r requirements-runtime.lock && python -m pip install --no-deps .
 
 USER alerta
 EXPOSE 8000

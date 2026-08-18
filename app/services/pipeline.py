@@ -9,6 +9,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
+from app.entities import get_entity
 from app.models import Campaign, Extraction, Message, Signal, Verdict
 from app.observability import observe_analysis
 from app.schemas import (
@@ -17,6 +18,8 @@ from app.schemas import (
     Channel,
     EvidenceSignal,
     MessageExtraction,
+    OfficialPhoneNumber,
+    OfficialVerification,
     SignalSeverity,
     SignalStatus,
     VerdictLevel,
@@ -191,6 +194,26 @@ class AnalysisPipeline:
 
         duration_ms = round((perf_counter() - started) * 1000)
         observe_analysis(decision.level.value, message_type.message_type.value, duration_ms)
+
+        known_entity = get_entity(extraction.claimed_entity)
+        official_verification = (
+            OfficialVerification(
+                entity_name=known_entity.name,
+                official_numbers=[
+                    OfficialPhoneNumber(
+                        number=p.number,
+                        source=p.source,
+                        verified_at=p.verified_at,
+                        purpose=p.purpose,
+                    )
+                    for p in known_entity.official_numbers
+                ],
+                official_domains=list(known_entity.official_domains),
+            )
+            if known_entity and (known_entity.official_numbers or known_entity.official_domains)
+            else None
+        )
+
         return AnalysisResponse(
             id=message.id,
             level=decision.level,
@@ -205,6 +228,7 @@ class AnalysisPipeline:
             signals=signals,
             rules=decision.rules,
             incident_steps=incident_steps(extraction, message_type.message_type),
+            official_verification=official_verification,
             meta=AnalysisMeta(
                 ruleset_version=self.settings.ruleset_version,
                 model_version=message.verdict.model_version,

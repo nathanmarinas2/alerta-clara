@@ -31,3 +31,13 @@ de campaña cuando falta y asigna el split por campaña. Con un corte temporal, 
 atraviesan la frontera se ponen en cuarentena y no se exportan: conservarlas filtraría ejemplos casi
 idénticos entre ajuste y validación. Revisa siempre la licencia y las etiquetas antes de incorporar el
 resultado al golden set versionado.
+
+## Fuentes y Atribución de Datasets
+
+- **SMS Phishing Dataset (Mishra & Soni, Mendeley Data, CC BY 4.0)**:
+  - Referencia: *Mishra, A. & Soni, D. (2022). SMS Phishing Dataset. Mendeley Data, V1, doi: 10.17632/f45bkkt8pr.1*.
+  - Licencia: Creative Commons Attribution 4.0 International (CC BY 4.0).
+  - Uso: Entrenamiento de clasificadores auxiliares de estructura de smishing.
+- **MIMICS-3500 (Proyecto LUCIA / Universidad de León / INCIBE)**:
+  - Referencia: *Engineering Applications of Artificial Intelligence vol. 163 (2026)*. Dataset multi-clase de smishing con 13 categorías finas en español de España. Fuente de referencia para evaluación académica y taxonomía de fraude.
+

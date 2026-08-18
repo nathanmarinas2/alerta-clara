@@ -115,6 +115,19 @@ class AnalysisMeta(BaseModel):
     created_at: datetime
 
 
+class OfficialPhoneNumber(BaseModel):
+    number: str
+    source: str
+    verified_at: str
+    purpose: str = ""
+
+
+class OfficialVerification(BaseModel):
+    entity_name: str
+    official_numbers: list[OfficialPhoneNumber] = Field(default_factory=list)
+    official_domains: list[str] = Field(default_factory=list)
+
+
 class AnalysisResponse(BaseModel):
     id: str
     level: VerdictLevel
@@ -129,6 +142,7 @@ class AnalysisResponse(BaseModel):
     signals: list[EvidenceSignal]
     rules: list[RuleTrace]
     incident_steps: list[str]
+    official_verification: OfficialVerification | None = None
     meta: AnalysisMeta
 
     model_config = ConfigDict(from_attributes=True)

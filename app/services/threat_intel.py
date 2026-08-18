@@ -110,6 +110,16 @@ def _feed_values(content: bytes, policy: ProviderPolicy) -> set[str]:
     if policy.format == "csv":
         for row in csv.reader(io.StringIO(text)):
             candidates.extend(cell.strip() for cell in row)
+    elif policy.format == "hostfile":
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith(("#", "//")):
+                continue
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] in {"127.0.0.1", "0.0.0.0"}:  # noqa: S104
+                candidates.append(parts[1])
+            else:
+                candidates.extend(parts)
     else:
         candidates.extend(line.strip() for line in text.splitlines())
 
@@ -439,8 +449,8 @@ def collect_reputation_signals(
         if not matching_providers:
             continue
         now = datetime.now(UTC)
-        fresh_providers: list[str] = []
-        provider_evidence: list[dict[str, str | int | bool]] = []
+        url_fresh_providers: list[str] = []
+        url_provider_evidence: list[dict[str, str | int | bool]] = []
         for provider in matching_providers:
             snapshot = latest_snapshot(provider)
             policy = policies.get(provider)
@@ -453,8 +463,8 @@ def collect_reputation_signals(
             ttl_seconds = policy.ttl_seconds if policy else settings.threat_feed_stale_hours * 3600
             fresh = age_seconds <= ttl_seconds
             if fresh:
-                fresh_providers.append(provider)
-            provider_evidence.append(
+                url_fresh_providers.append(provider)
+            url_provider_evidence.append(
                 {
                     "provider": provider,
                     "version": snapshot.version,
@@ -462,24 +472,42 @@ def collect_reputation_signals(
                     "fresh": fresh,
                 }
             )
-        if not fresh_providers:
+        if not url_fresh_providers:
+            signals.append(
+                EvidenceSignal(
+                    check_name="stale_threat_indicator",
+                    value={"url": url, "sources": url_provider_evidence},
+                    weight=0,
+                    severity=SignalSeverity.INFO,
+                    summary=(
+                        "Hay una coincidencia antigua de URL, pero la fuente ya no está vigente."
+                    ),
+                    detail="Una fuente caducada no interviene en el veredicto.",
+                    source="threat_feeds",
+                    version=settings.signalset_version,
+                )
+            )
             continue
-        hard = len(fresh_providers) >= 2 or any(
+        hard = len(url_fresh_providers) >= 2 or any(
             policies.get(provider) and policies[provider].hard_rule_eligible
-            for provider in fresh_providers
+            for provider in url_fresh_providers
         )
         signals.append(
             EvidenceSignal(
-                check_name="known_bad_url",
-                value={"url": url, "providers": fresh_providers, "sources": provider_evidence},
+                check_name="known_bad_indicator",
+                value={
+                    "url": url,
+                    "providers": url_fresh_providers,
+                    "sources": url_provider_evidence,
+                },
                 weight=100 if hard else 60,
-                severity=SignalSeverity.CRITICAL if hard else SignalSeverity.WARNING,
+                severity=(SignalSeverity.CRITICAL if hard else SignalSeverity.WARNING),
                 summary=(
-                    "La URL exacta figura en fuentes actualizadas de malware o phishing."
+                    "El enlace exacto figura en fuentes actualizadas de phishing."
                     if hard
-                    else "Una fuente de inteligencia ha marcado esta URL concreta."
+                    else "Una fuente de inteligencia ha marcado este enlace como malicioso."
                 ),
-                detail="La coincidencia conserva proveedor, versión y caducidad para auditarla.",
+                detail="La coincidencia conserva proveedor y versión para poder auditarla.",
                 hard_rule=hard,
                 source="threat_feeds",
                 version=settings.signalset_version,

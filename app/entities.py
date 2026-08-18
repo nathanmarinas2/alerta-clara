@@ -36,12 +36,20 @@ CONFUSABLES = str.maketrans(
 
 
 @dataclass(frozen=True)
+class OfficialPhoneNumber:
+    number: str
+    source: str
+    verified_at: str
+    purpose: str = ""
+
+
+@dataclass(frozen=True)
 class KnownEntity:
     name: str
     category: str
     aliases: tuple[str, ...]
     official_domains: tuple[str, ...]
-    official_numbers: tuple[str, ...]
+    official_numbers: tuple[OfficialPhoneNumber, ...]
 
 
 def normalize_token(value: str) -> str:
@@ -55,16 +63,29 @@ def normalize_token(value: str) -> str:
 @lru_cache
 def load_entities() -> tuple[KnownEntity, ...]:
     raw_entities = json.loads(DATA_PATH.read_text(encoding="utf-8"))
-    return tuple(
-        KnownEntity(
-            name=item["name"],
-            category=item["category"],
-            aliases=tuple(item["aliases"]),
-            official_domains=tuple(item["official_domains"]),
-            official_numbers=tuple(item["official_numbers"]),
+    entities: list[KnownEntity] = []
+    for item in raw_entities:
+        phones: list[OfficialPhoneNumber] = []
+        for entry in item.get("official_numbers", []):
+            if isinstance(entry, dict):
+                phones.append(
+                    OfficialPhoneNumber(
+                        number=str(entry["number"]),
+                        source=str(entry.get("source", "")),
+                        verified_at=str(entry.get("verified_at", "")),
+                        purpose=str(entry.get("purpose", "")),
+                    )
+                )
+        entities.append(
+            KnownEntity(
+                name=item["name"],
+                category=item["category"],
+                aliases=tuple(item["aliases"]),
+                official_domains=tuple(item["official_domains"]),
+                official_numbers=tuple(phones),
+            )
         )
-        for item in raw_entities
-    )
+    return tuple(entities)
 
 
 def find_claimed_entity(text: str) -> KnownEntity | None:

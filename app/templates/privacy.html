@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Política de privacidad y tratamiento de datos en Alerta Clara.">
+    <meta name="theme-color" content="#17346f">
+    <title>Privacidad · Alerta Clara</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="Alerta Clara, inicio">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 28 32" role="img">
+            <path d="M14 1.5 26 6v9.1c0 7.4-4.8 12.7-12 15.4C6.8 27.8 2 22.5 2 15.1V6l12-4.5Z" fill="none" stroke="currentColor" stroke-width="2.4"/>
+            <path d="m8.5 15.8 3.4 3.4 7.7-8" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"/>
+          </svg>
+        </span>
+        <span>Alerta <strong>Clara</strong></span>
+      </a>
+      <span class="header-promise">Sin cuentas · Sin guardar capturas</span>
+    </header>
+
+    <main class="page-shell" style="max-width: 780px; margin: 2rem auto; padding: 0 1.25rem;">
+      <p><a href="/" style="color: var(--color-brand-primary, #1457d9); text-decoration: none; font-weight: 500;">← Volver a Alerta Clara</a></p>
+      <h1 style="margin-top: 1.5rem; margin-bottom: 1rem;">Privacidad y Tratamiento de Datos</h1>
+      <p style="font-size: 1.1rem; line-height: 1.6; color: var(--color-text-secondary, #334155);">
+        Alerta Clara analiza el contenido que envías para generar un veredicto orientativo. No vende datos, no crea perfiles publicitarios ni almacena identificadores personales.
+      </p>
+
+      <section style="margin-top: 2rem;">
+        <h2>Qué guardamos y qué redactamos</h2>
+        <p style="line-height: 1.6;">
+          Antes de guardar o evaluar cualquier mensaje, el sistema redacta automáticamente datos personales sensibles como números de tarjeta, códigos de un solo uso (OTP/PIN), identificadores nacionales (DNI/NIE), teléfonos e IBANs.
+        </p>
+        <p style="line-height: 1.6;">
+          Guardamos durante un periodo de retención limitado el texto redactado, las señales técnicas calculadas y el veredicto final. La referencia del usuario se transforma en un hash con un secreto del servidor (pepper) para evitar rastreos persistentes.
+        </p>
+      </section>
+
+      <section style="margin-top: 2rem;">
+        <h2>Imágenes y proveedores externos</h2>
+        <p style="line-height: 1.6;">
+          El reconocimiento de texto (OCR) y la decodificación de códigos QR se ejecutan localmente en el servidor. Las imágenes y capturas no se almacenan en disco ni se transmiten a proveedores externos salvo que se active de forma expresa y voluntaria el análisis asistido.
+        </p>
+      </section>
+
+      <section style="margin-top: 2rem;">
+        <h2>Tus derechos</h2>
+        <p style="line-height: 1.6;">
+          Para solicitar información, rectificación o eliminación anticipada de cualquier registro derivado de tus análisis, contacta con la persona responsable de esta instalación. Esta página es informativa y describe el funcionamiento técnico por defecto del software de código abierto.
+        </p>
+      </section>
+    </main>
+
+    <footer class="site-footer" style="margin-top: 4rem; padding: 2rem 0; border-top: 1px solid var(--color-border, #e2e8f0); text-align: center; font-size: 0.9rem; color: #64748b;">
+      <p>Alerta Clara · Software libre y auditable</p>
+    </footer>
+  </body>
+</html>

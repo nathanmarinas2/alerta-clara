@@ -21,6 +21,50 @@ CONTEXT_SUPPRESSIBLE_CHECKS = {
     "excessive_subdomains",
 }
 
+SIGNAL_FAMILIES: dict[str, str] = {
+    # 1. Identidad, atribución de canal y solicitud no autenticada
+    # NOTA DE DISEÑO: requested_action vive en identity_and_channel intencionadamente:
+    # "dice ser un banco, desde un móvil, y pide actuar" es un único hecho de origen.
+    # Separarlo en otra familia provocaría sobreacumulación y falsos positivos en alertas
+    # bancarias informativas o legítimas (ej. legit-bank-forward-001).
+    "bank_from_mobile_number": "identity_and_channel",
+    "unverifiable_entity_claim": "identity_and_channel",
+    "claimed_entity_domain_mismatch": "identity_and_channel",
+    "combo_squatting": "identity_and_channel",
+    "official_domain_match": "identity_and_channel",
+    "requested_action": "identity_and_channel",
+    # 2. Presión psicológica y urgencia
+    "urgency_language": "behavioral_pressure",
+    "qr_payment_request": "behavioral_pressure",
+    # 3. Anomalías sintácticas y ofuscación en URL/dominio
+    "raw_ip_hostname": "technical_url",
+    "punycode_hostname": "technical_url",
+    "risky_tld": "technical_url",
+    "shortened_url": "technical_url",
+    "phishing_url_keywords": "technical_url",
+    "excessive_url_length": "technical_url",
+    "excessive_subdomains": "technical_url",
+    "deep_url_path": "technical_url",
+    "high_domain_entropy": "technical_url",
+    # 4. Infraestructura de red, certificados y redirecciones
+    "domain_age": "network_infrastructure",
+    "tls_certificate_age": "network_infrastructure",
+    "redirect_chain": "network_infrastructure",
+    # 5. Inteligencia de fuentes externas y reputación
+    "known_bad_indicator": "threat_intelligence",
+    "stale_threat_indicator": "threat_intelligence",
+    "google_safe_browsing_hash_match": "threat_intelligence",
+    # 6. Análisis textual y modelos auxiliares
+    "text_obfuscation": "content_nlp_ml",
+    "ml_phishing_classifier": "content_nlp_ml",
+    # 7. Campañas coordinadas
+    "known_campaign_artifacts": "campaign_intel",
+    "similar_campaign_text": "campaign_intel",
+    # 8. Reglas deterministas críticas
+    "remote_access": "critical_payload",
+    "requests_security_code": "critical_payload",
+}
+
 
 @dataclass(frozen=True)
 class Decision:
@@ -154,13 +198,14 @@ def decide(
     active_signals = [signal for signal in signals if signal.status == SignalStatus.HIT]
     hard_signals = [signal for signal in active_signals if signal.hard_rule]
     hard_rule = bool(hard_signals)
-    weights_by_check: dict[str, int] = {}
+    family_weights: dict[str, int] = {}
     for signal in active_signals:
-        weights_by_check[signal.check_name] = max(
-            weights_by_check.get(signal.check_name, 0),
+        family = SIGNAL_FAMILIES.get(signal.check_name, signal.check_name)
+        family_weights[family] = max(
+            family_weights.get(family, 0),
             max(0, signal.weight),
         )
-    score = min(100, sum(weights_by_check.values()))
+    score = min(100, sum(family_weights.values()))
     level = VerdictLevel.SCAM if hard_rule or score >= 70 else VerdictLevel.UNCERTAIN
     ranked = sorted(
         (signal for signal in active_signals if signal.severity != SignalSeverity.INFO),

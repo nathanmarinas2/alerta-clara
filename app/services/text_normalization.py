@@ -55,10 +55,15 @@ def adversarial_obfuscations(text: str) -> list[str]:
     findings: list[str] = []
     if ZERO_WIDTH_RE.search(text):
         findings.append("caracteres invisibles")
+    if text.translate(CONFUSABLES) != text:
+        findings.append("homoglifos o caracteres confusables")
     if SPACED_LETTERS_RE.search(text):
         findings.append("palabras separadas letra a letra")
-    if re.search(r"(?i)\b(?:c[o0]d[i1]g[o0]|any\s+desk|team\s+viewer|rust\s+desk)\b", text):
-        findings.append("sustitución de caracteres o nombre dividido")
-    if re.search(r"(?i)\b[a-záéíóúüñ]+[013457][a-záéíóúüñ]+\b", text):
-        findings.append("leet")
+    if re.search(r"\b(any|team|rust)\s+(desk|viewer)\b", text, flags=re.I):
+        findings.append("nombre de aplicación dividido")
+    for token in ALNUM_TOKEN_RE.findall(text):
+        if any(char.isalpha() for char in token) and token.translate(LEET) != token:
+            findings.append("sustitución leet")
+            break
     return findings
+

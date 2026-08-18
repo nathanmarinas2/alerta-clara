@@ -191,37 +191,9 @@ def home() -> HTMLResponse:
 
 @app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
 def privacy() -> HTMLResponse:
-    privacy_html = "\n".join(
-        [
-            '<!doctype html><html lang="es"><head><meta charset="utf-8">',
-            '<meta name="viewport" content="width=device-width,initial-scale=1">',
-            "<title>Privacidad · Alerta Clara</title>",
-            "<style>body{font-family:system-ui,sans-serif;max-width:720px;",
-            "margin:3rem auto;padding:0 1.25rem;line-height:1.6;color:#172033}",
-            "a{color:#1457d9}</style></head><body>",
-            '<p><a href="/">← Volver a Alerta Clara</a></p><h1>Privacidad</h1>',
-            "<p>Alerta Clara analiza el contenido que envías para generar un veredicto ",
-            "orientativo.",
-            "No vende datos ni crea perfiles publicitarios.</p>",
-            "<h2>Qué guardamos</h2>",
-            "<p>Guardamos durante un periodo limitado el texto redactado (sin códigos, tarjetas,",
-            "IBAN, DNI, teléfonos ni parámetros sensibles de URL), las señales técnicas y el ",
-            "resultado.",
-            "La cuenta o referencia del usuario se convierte en un hash con un secreto del ",
-            "servidor.</p>",
-            "<h2>Imágenes y proveedores</h2>",
-            "<p>El OCR y la lectura de QR se realizan localmente cuando están habilitados.",
-            "Una imagen solo se envía a un proveedor externo si activas expresamente el análisis",
-            "externo y existe una clave configurada.</p>",
-            "<h2>Tus derechos</h2>",
-            "<p>Para solicitar información, rectificación o eliminación, contacta con la persona",
-            "responsable de esta instalación. Esta página es informativa y debe adaptarse a la ",
-            "política",
-            "legal de cada despliegue.</p></body></html>",
-        ]
-    )
+    content = (BASE_DIR / "templates" / "privacy.html").read_text(encoding="utf-8")
     return HTMLResponse(
-        privacy_html,
+        content,
         headers={
             "Content-Security-Policy": (
                 "default-src 'self'; style-src 'unsafe-inline' 'self'; frame-ancestors 'none'"

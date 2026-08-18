@@ -9,8 +9,8 @@ __pycache__
 *.sqlite3
 uvicorn.*.log
 data/external
-models/*.joblib
 models/*.pkl
+models/scratch*
 htmlcov
 .coverage
 README*~

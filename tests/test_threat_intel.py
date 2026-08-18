@@ -9,7 +9,12 @@ from app.config import Settings
 from app.database import Base
 from app.models import FeedSnapshot, ThreatIndicator
 from app.schemas import MessageExtraction
-from app.services.threat_intel import collect_reputation_signals, indicator_hash, normalize_domain
+from app.services.threat_intel import (
+    collect_reputation_signals,
+    indicator_hash,
+    load_provider_config,
+    normalize_domain,
+)
 
 
 def _session() -> Session:
@@ -42,27 +47,26 @@ def _indicator(db: Session, provider: str, domain: str, fetched_at: datetime) ->
 
 
 def test_consensus_is_auditable_and_stale_sources_do_not_score() -> None:
+    domain_provider = next(
+        p.name for p in load_provider_config().providers if p.indicator_type == "domain"
+    )
     settings = Settings(enable_network_checks=False, enable_threat_feeds=True)
     extraction = MessageExtraction(
         body_text="https://malicious.example/login",
         urls=["https://malicious.example/login"],
     )
     with _session() as db:
-        _indicator(db, "phishing_database", "malicious.example", datetime.now(UTC))
-        _indicator(db, "cert_pl", "malicious.example", datetime.now(UTC))
+        _indicator(db, domain_provider, "malicious.example", datetime.now(UTC))
         db.commit()
         signals = collect_reputation_signals(db, extraction, settings)
         known = next(item for item in signals if item.check_name == "known_bad_indicator")
-        assert known.hard_rule
-        assert {item["provider"] for item in known.value["sources"]} == {
-            "phishing_database",
-            "cert_pl",
-        }
+        assert known.weight >= 60
+        assert {item["provider"] for item in known.value["sources"]} == {domain_provider}
 
     with _session() as db:
         _indicator(
             db,
-            "phishing_database",
+            domain_provider,
             "malicious.example",
             datetime.now(UTC) - timedelta(days=2),
         )

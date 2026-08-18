@@ -6,8 +6,8 @@
     <meta name="description" content="Comprueba mensajes sospechosos antes de pulsar, llamar o compartir datos.">
     <meta name="theme-color" content="#17346f">
     <title>Alerta Clara — Comprueba antes de actuar</title>
-    <link rel="stylesheet" href="/static/styles.css">
-    <script src="/static/app.js" defer></script>
+    <link rel="stylesheet" href="/static/styles.css?v=2026.08.4">
+    <script src="/static/app.js?v=2026.08.4" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#analyzer">Ir al comprobador</a>
@@ -84,7 +84,16 @@
 
           <form id="analysis-form" novalidate>
             <div class="field-group">
-              <label for="message">Pega aquí el mensaje</label>
+              <div class="label-row">
+                <label for="message">Pega aquí el mensaje</label>
+                <button class="paste-button" id="paste-button" type="button" aria-label="Pegar mensaje desde el portapapeles">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" fill="none" stroke="currentColor" stroke-width="2"/>
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" fill="none" stroke="currentColor" stroke-width="2"/>
+                  </svg>
+                  <span>Pegar mensaje</span>
+                </button>
+              </div>
               <textarea
                 id="message"
                 name="message"
@@ -168,17 +177,25 @@
             <span class="verdict-dot" aria-hidden="true"></span>
             <span id="verdict-text"></span>
           </div>
-          <div class="message-type" id="message-type" hidden>
-            <span class="message-type-label">Tipo orientativo</span>
-            <strong id="message-type-text"></strong>
-            <span id="message-type-confidence"></span>
-          </div>
+
           <h2 id="result-headline"></h2>
           <p class="result-summary" id="result-summary"></p>
 
           <div class="action-box">
             <span class="action-label">Haz esto ahora</span>
             <p id="result-action"></p>
+          </div>
+
+          <div class="official-verification-box" id="official-verification-box" hidden>
+            <a class="call-official-button" id="official-call-link" href="#">
+              <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22">
+                <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.44-5.15-3.75-6.59-6.59l1.97-1.57c.28-.28.36-.67.25-1.02A11.36 11.36 0 0 1 9 4.31c0-.55-.45-1-1-1H4.5c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.5c0-.55-.45-1-1-1z" fill="currentColor"/>
+              </svg>
+              <span id="official-call-text">Llamar al número oficial</span>
+            </a>
+            <p class="official-verification-note" id="official-verification-note">
+              Canal oficial comprobado en el portal de la entidad. Si tienes dudas, utiliza el teléfono del reverso de tu tarjeta física.
+            </p>
           </div>
 
           <section class="reason-section" aria-labelledby="reason-title">
@@ -191,8 +208,14 @@
             <ol id="incident-list"></ol>
           </details>
 
+          <div class="message-type" id="message-type" hidden>
+            <span class="message-type-label">Clasificación orientativa</span>
+            <strong id="message-type-text"></strong>
+            <span id="message-type-qualitative"></span>
+          </div>
+
           <details class="evidence-details">
-            <summary>Ver todas las comprobaciones</summary>
+            <summary>Ver todas las comprobaciones técnicas</summary>
             <div id="signal-list"></div>
           </details>
 
@@ -206,7 +229,7 @@
             <button class="secondary-button" id="share-button" type="button">
               Compartir con alguien de confianza
             </button>
-            <button class="secondary-button" id="reset-button" type="button">Analizar otro</button>
+            <button class="secondary-button" id="reset-button" type="button">Analizar otro mensaje</button>
           </div>
 
           <div class="feedback-row" id="feedback-row">

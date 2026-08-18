@@ -11,3 +11,5 @@ data/external/
 htmlcov/
 node_modules/
 uvicorn.*.log
+.claude/
+

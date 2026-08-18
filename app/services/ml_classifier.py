@@ -7,14 +7,19 @@ from typing import Any
 from app.config import Settings
 from app.services.redaction import model_text
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 
 @lru_cache(maxsize=4)
 def _load_model(path: str) -> dict[str, Any] | None:
     """Carga solo artefactos locales generados por nuestro entrenamiento."""
 
-    model_path = Path(path)
+    raw_path = Path(path)
+    model_path = raw_path if raw_path.is_absolute() else (PROJECT_ROOT / raw_path)
     if not model_path.is_file():
-        return None
+        model_path = raw_path
+        if not model_path.is_file():
+            return None
     try:
         import joblib
 

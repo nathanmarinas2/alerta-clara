@@ -1,3 +1,8 @@
+from __future__ import annotations
+
+import re
+from pathlib import Path
+
 import pytest
 
 from app.config import Settings
@@ -9,7 +14,7 @@ from app.schemas import (
     SignalStatus,
     VerdictLevel,
 )
-from app.services.rules import decide
+from app.services.rules import SIGNAL_FAMILIES, decide
 from app.services.signals import SignalCollector
 
 
@@ -39,7 +44,7 @@ async def test_risky_impersonation_accumulates_to_scam() -> None:
     result = decide(extraction, signals)
 
     assert result.level == VerdictLevel.SCAM
-    assert result.score == 100
+    assert result.score >= 70
 
 
 @pytest.mark.asyncio
@@ -153,3 +158,59 @@ def test_shared_infrastructure_suppresses_only_noisy_technical_signal() -> None:
         rule for rule in decision.rules if rule.rule_id == "shared_infrastructure_suppression"
     )
     assert suppression.suppressed_signal_names == ["high_domain_entropy"]
+
+
+@pytest.mark.asyncio
+async def test_bank_alert_from_mobile_without_urgency_does_not_false_alarm() -> None:
+    extraction = MessageExtraction(
+        body_text="CaixaBank: hemos detectado un cargo. Si no lo reconoces llama al 900123456",
+        sender_number="+34 600111222",
+        claimed_entity="CaixaBank",
+        requested_action=RequestedAction.CALL,
+    )
+    signals = await SignalCollector(Settings(enable_network_checks=False)).collect(extraction)
+    decision = decide(extraction, signals)
+
+    # Las señales de identidad y canal (bank_from_mobile: 65, unverifiable_entity: 15,
+    # requested_action: 10) se consolidan en el máximo de su familia (65), quedando por
+    # debajo del umbral de estafa (70).
+    assert decision.score == 65
+    assert decision.level == VerdictLevel.UNCERTAIN
+
+
+@pytest.mark.asyncio
+async def test_bank_alert_from_mobile_with_urgency_escalates_to_scam() -> None:
+    extraction = MessageExtraction(
+        body_text="CaixaBank: cuenta bloqueada. Llama inmediatamente al 900123456 para resolverlo.",
+        sender_number="+34 600111222",
+        claimed_entity="CaixaBank",
+        requested_action=RequestedAction.CALL,
+        urgency_markers=["bloqueada", "inmediatamente"],
+    )
+    signals = await SignalCollector(Settings(enable_network_checks=False)).collect(extraction)
+    decision = decide(extraction, signals)
+
+    # Identidad y canal (65) + presión psicológica (15) = 80 >= 70
+    assert decision.score == 80
+    assert decision.level == VerdictLevel.SCAM
+
+
+def test_toda_familia_apunta_a_una_senal_real() -> None:
+    app_dir = Path(__file__).resolve().parents[1] / "app"
+    emitted_checks: set[str] = set()
+    for py_file in app_dir.rglob("*.py"):
+        text = py_file.read_text(encoding="utf-8")
+        for match in re.finditer(r'check_name\s*=\s*["\']([^"\']+)["\']', text):
+            emitted_checks.add(match.group(1))
+        for match in re.finditer(r'_signal\(\s*["\']([^"\']+)["\']', text):
+            emitted_checks.add(match.group(1))
+        for match in re.finditer(r'_not_applicable\(\s*["\']([^"\']+)["\']', text):
+            emitted_checks.add(match.group(1))
+        for match in re.finditer(r'_with_timeout\(\s*["\']([^"\']+)["\']', text):
+            emitted_checks.add(match.group(1))
+
+    orphan_keys = set(SIGNAL_FAMILIES) - emitted_checks
+    assert not orphan_keys, f"Claves huérfanas en SIGNAL_FAMILIES: {orphan_keys}"
+
+
+

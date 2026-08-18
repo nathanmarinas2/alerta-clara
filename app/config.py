@@ -46,8 +46,8 @@ class Settings(BaseSettings):
     signal_timeout_seconds: float = 3.0
     body_retention_hours: int = 24
     retention_purge_interval_seconds: int = 3600
-    ruleset_version: str = "2026.08.3"
-    signalset_version: str = "2026.08.3"
+    ruleset_version: str = "2026.08.4"
+    signalset_version: str = "2026.08.4"
     max_upload_bytes: int = 5 * 1024 * 1024
 
     model_config = SettingsConfigDict(
