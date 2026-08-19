@@ -14,6 +14,9 @@ on:
     # que escribe el propio monitor, no la hora nominal del cron.
     - cron: "17 */3 * * *"
   workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/ct-monitor.yml"
 
 permissions:
   contents: write
