@@ -13,6 +13,7 @@ import hashlib
 import json
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -28,6 +29,8 @@ from app.entities import (
 )
 
 logger = logging.getLogger(__name__)
+
+AUDIT_LOG_DIR = Path(__file__).resolve().parents[2] / "data" / "ct_observations"
 
 # Emisores en campañas de phishing (validación DV gratuita/automatizada)
 AUTOMATED_DV_ISSUERS = (
@@ -265,14 +268,115 @@ class CertificateTransparencyConnector:
         return observations
 
 
+def append_ct_observations_to_audit_log(
+    observations: list[ConnectorObservation],
+    audit_dir: Path | None = None,
+) -> Path:
+    """Escribe observaciones al registro inmutable diario en data/ct_observations/YYYY-MM-DD.jsonl.
+
+    Respeta el principio: 'Registra cuando observas, nunca reconstruyas hacia atrás'.
+    Cada entrada contiene timestamp ISO de observación, entidad suplantada, emisor del cert y score.
+    Actualiza además el manifest.json con el hash SHA-256 del fichero para notarización git.
+    """
+    target_dir = audit_dir or AUDIT_LOG_DIR
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.now(UTC)
+    date_str = now.strftime("%Y-%m-%d")
+    daily_file = target_dir / f"{date_str}.jsonl"
+
+    existing_domains: set[str] = set()
+    if daily_file.exists():
+        for line in daily_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    entry = json.loads(line)
+                    existing_domains.add(entry.get("domain", ""))
+                except Exception:
+                    pass
+
+    new_lines: list[str] = []
+    for obs in observations:
+        dom = obs.value
+        if dom in existing_domains:
+            continue
+        existing_domains.add(dom)
+        entry = {
+            "domain": dom,
+            "observed_at": (obs.retrieved_at or now).isoformat(),
+            "first_seen_cert": obs.first_seen.isoformat() if obs.first_seen else None,
+            "claimed_entity": (
+                obs.provenance.get("claimed_entity") if obs.provenance else None
+            ),
+            "issuer": obs.provenance.get("issuer_name") if obs.provenance else None,
+            "ct_id": obs.provenance.get("ct_id") if obs.provenance else None,
+            "risk_score": obs.confidence,
+            "status": obs.status,
+            "verification": {
+                "source": None,
+                "confirmed_at": None,
+                "lead_time_days": None,
+                "active_clone": False,
+                "evidence_hash": None,
+            },
+        }
+        new_lines.append(json.dumps(entry, ensure_ascii=False))
+
+    if new_lines:
+        with daily_file.open("a", encoding="utf-8") as f:
+            for nl in new_lines:
+                f.write(f"{nl}\n")
+
+    manifest_file = target_dir / "manifest.json"
+    manifest: dict[str, Any] = {"updated_at": now.isoformat(), "daily_files": {}}
+    if manifest_file.exists():
+        try:
+            manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+            manifest["updated_at"] = now.isoformat()
+        except Exception:
+            pass
+
+    total_count = 0
+    daily_files_meta: dict[str, Any] = {}
+    for jsonl_path in sorted(target_dir.glob("*.jsonl")):
+        content = jsonl_path.read_bytes()
+        file_sha256 = hashlib.sha256(content).hexdigest()
+        count = len(
+            [l for l in content.decode("utf-8", errors="ignore").splitlines() if l.strip()]
+        )
+        total_count += count
+        daily_files_meta[jsonl_path.name] = {
+            "sha256": file_sha256,
+            "entry_count": count,
+            "size_bytes": len(content),
+        }
+
+    manifest["total_observations"] = total_count
+    manifest["daily_files"] = daily_files_meta
+    manifest_file.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+    return daily_file
+
+
 def store_ct_observations(
     observations: list[ConnectorObservation],
     version: str = "1.0.0",
+    audit_dir: Path | None = None,
 ) -> int:
-    """Persiste observaciones de CT en FeedSnapshot y ThreatIndicator."""
+    """Persiste observaciones de CT en FeedSnapshot, ThreatIndicator y registro git."""
     if not observations:
         return 0
 
+    # 1. Escribir al registro inmutable diario git
+    try:
+        append_ct_observations_to_audit_log(observations, audit_dir=audit_dir)
+    except Exception as exc:
+        logger.warning("No se pudo escribir al registro de auditoría CT: %s", exc)
+
+    # 2. Persistir en base de datos
     from app.database import SessionLocal
     from app.models import FeedSnapshot, ThreatIndicator
     from app.services.threat_intel import indicator_hash
