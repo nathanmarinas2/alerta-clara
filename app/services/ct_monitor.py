@@ -264,7 +264,7 @@ class CertificateTransparencyConnector:
         any_success = False
 
         headers = {"User-Agent": "AlertaClara/1.0 (CT-Monitor; Security Research)"}
-        for domain in entity.official_domains:
+        for domain in entity.official_domains[:2]:
             url = f"https://api.certspotter.com/v1/issuances?domain={domain}&include_subdomains=true&expand=dns_names&expand=issuer"
             try:
                 response = await client.get(url, headers=headers, timeout=self.timeout)
