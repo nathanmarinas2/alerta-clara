@@ -14,7 +14,7 @@ import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 
@@ -27,6 +27,9 @@ from app.entities import (
     normalize_token,
     registrable_domain,
 )
+
+if TYPE_CHECKING:  # pragma: no cover - solo para anotaciones
+    from app.config import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +149,8 @@ class CertificateTransparencyConnector:
         target_entities: list[str] | None = None,
         timeout: float = 30.0,
         max_retries: int = 3,
-        backoff_factor: float = 2.0,
+        backoff_factor: float = 15.0,
+        enable_postgres_fallback: bool = True,
     ) -> None:
         self.target_entities = target_entities or [
             "CaixaBank",
@@ -163,30 +167,132 @@ class CertificateTransparencyConnector:
         self.timeout = timeout
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
+        self.enable_postgres_fallback = enable_postgres_fallback
+        # Registro de resultado por consulta: distingue "no habia nada" de "no pude mirar".
+        self.run_records: list[dict[str, Any]] = []
+
+    def _record_run(
+        self,
+        entity_name: str,
+        *,
+        source: str,
+        ok: bool,
+        certificates: int,
+        attempts: int,
+        last_status: int | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Deja constancia del resultado de la consulta, haya hallazgos o no.
+
+        Sin esto, un día con crt.sh caído produce el mismo fichero vacío que un día
+        sin dominios sospechosos, y la afirmación "monitorizamos N marcas el día D"
+        deja de ser demostrable.
+        """
+        self.run_records.append(
+            {
+                "entity": entity_name,
+                "source": source,
+                "ok": ok,
+                "certificates_seen": certificates,
+                "attempts": attempts,
+                "last_status": last_status,
+                "error": error,
+                "checked_at": datetime.now(UTC).isoformat(),
+            }
+        )
+
+    async def _fetch_via_postgres(self, search_token: str) -> list[dict[str, Any]] | None:
+        """Respaldo por la interfaz Postgres pública de crt.sh (certwatch).
+
+        Suele responder cuando el frontend web devuelve 502. Devuelve None si no se
+        pudo usar, para distinguirlo de "consultado y sin resultados".
+        """
+        if not self.enable_postgres_fallback:
+            return None
+
+        def _query() -> list[dict[str, Any]] | None:
+            try:
+                import psycopg
+            except ImportError:
+                return None
+            sql = (
+                "SELECT ci.NAME_VALUE AS name_value, c.ID AS id, ca.NAME AS issuer_name, "
+                "x509_notBefore(c.CERTIFICATE) AS not_before, "
+                "x509_notAfter(c.CERTIFICATE) AS not_after "
+                "FROM certificate_identity ci "
+                "JOIN certificate c ON c.ID = ci.CERTIFICATE_ID "
+                "JOIN ca ON ca.ID = c.ISSUER_CA_ID "
+                "WHERE ci.NAME_TYPE = 'dNSName' AND lower(ci.NAME_VALUE) LIKE %s "
+                "AND x509_notBefore(c.CERTIFICATE) > now() - interval '30 days' "
+                "LIMIT 2000"
+            )
+            try:
+                with psycopg.connect(
+                    "postgresql://guest@crt.sh:5432/certwatch",
+                    connect_timeout=15,
+                ) as conn, conn.cursor() as cur:
+                    cur.execute("SET statement_timeout = 25000")
+                    cur.execute(sql, (f"%{search_token}%",))
+                    columns = [d[0] for d in cur.description]
+                    rows = [dict(zip(columns, r, strict=True)) for r in cur.fetchall()]
+            except Exception:
+                return None
+            for row in rows:
+                for key in ("not_before", "not_after"):
+                    if row.get(key) is not None:
+                        row[key] = str(row[key])
+                row["entry_timestamp"] = row.get("not_before")
+                row["common_name"] = None
+            return rows
+
+        return await asyncio.to_thread(_query)
 
     async def fetch_entity_certificates(
         self,
         entity_name: str,
         client: httpx.AsyncClient,
     ) -> list[dict[str, Any]]:
-        """Consulta crt.sh con política de reintentos y backoff ante 502/rate-limits."""
+        """Consulta crt.sh con reintentos, backoff y respaldo por Postgres."""
         entity = get_entity(entity_name)
         if not entity:
+            self._record_run(
+                entity_name,
+                source="none",
+                ok=False,
+                certificates=0,
+                attempts=0,
+                error="entidad_desconocida",
+            )
             return []
 
         search_token = normalize_token(entity.name)
         url = f"https://crt.sh/?q=%25{search_token}%25&output=json&exclude=expired"
         headers = {"User-Agent": "AlertaClara/1.0 (CT-Monitor; Security Research)"}
 
+        last_status: int | None = None
+        last_error: str | None = None
+        attempts = 0
+
         for attempt in range(1, self.max_retries + 1):
+            attempts = attempt
             try:
                 response = await client.get(url, headers=headers, timeout=self.timeout)
+                last_status = response.status_code
                 if response.status_code == 200:
                     try:
                         data = response.json()
                         if isinstance(data, list):
+                            self._record_run(
+                                entity_name,
+                                source="crtsh_http",
+                                ok=True,
+                                certificates=len(data),
+                                attempts=attempt,
+                                last_status=last_status,
+                            )
                             return data
                     except json.JSONDecodeError:
+                        last_error = "respuesta_no_json"
                         logger.warning("crt.sh devolvió respuesta no-JSON para %s", entity_name)
                 elif response.status_code in (429, 502, 503, 504):
                     logger.info(
@@ -196,6 +302,7 @@ class CertificateTransparencyConnector:
                         attempt,
                     )
             except (httpx.RequestError, TimeoutError) as exc:
+                last_error = type(exc).__name__
                 logger.warning(
                     "Error consultando crt.sh para %s (intento %d): %s",
                     entity_name,
@@ -206,17 +313,56 @@ class CertificateTransparencyConnector:
             if attempt < self.max_retries:
                 await asyncio.sleep(self.backoff_factor * attempt)
 
+        fallback = await self._fetch_via_postgres(search_token)
+        if fallback is not None:
+            self._record_run(
+                entity_name,
+                source="crtsh_postgres",
+                ok=True,
+                certificates=len(fallback),
+                attempts=attempts,
+                last_status=last_status,
+            )
+            return fallback
+
+        # Ambas vías agotadas: se deja constancia explícita de que se intentaron las dos,
+        # para que el registro diario distinga "no había nada" de "no se pudo consultar".
+        fallback_note = (
+            "respaldo_postgres_fallido"
+            if self.enable_postgres_fallback
+            else "respaldo_postgres_desactivado"
+        )
+        self._record_run(
+            entity_name,
+            source="crtsh_http+postgres",
+            ok=False,
+            certificates=0,
+            attempts=attempts,
+            last_status=last_status,
+            error=f"{last_error or 'sin_respuesta_utilizable'}/{fallback_note}",
+        )
         return []
 
     async def fetch(self) -> list[ConnectorObservation]:
         """Obtiene observaciones de dominios sospechosos para las entidades objetivo."""
         observations: list[ConnectorObservation] = []
         seen_domains: set[str] = set()
+        self.run_records = []
 
         async with httpx.AsyncClient() as client:
             for entity_name in self.target_entities:
                 entity = get_entity(entity_name)
                 if not entity:
+                    # Una errata en CT_MONITOR_TARGET_ENTITIES no puede desaparecer
+                    # en silencio: el registro debe reflejar que esa marca no se miró.
+                    self._record_run(
+                        entity_name,
+                        source="none",
+                        ok=False,
+                        certificates=0,
+                        attempts=0,
+                        error="entidad_desconocida",
+                    )
                     continue
 
                 certs = await self.fetch_entity_certificates(entity_name, client)
@@ -268,6 +414,36 @@ class CertificateTransparencyConnector:
         return observations
 
 
+def append_ct_run_log(
+    run_records: list[dict[str, Any]],
+    audit_dir: Path | None = None,
+) -> Path:
+    """Sella el resultado de cada consulta del día, con o sin hallazgos.
+
+    Es lo que permite afirmar "el día D monitorizamos N marcas y M consultas
+    tuvieron éxito". Sin este registro, un fichero de observaciones vacío es
+    ambiguo entre "no había nada" y "no pude consultar".
+    """
+    target_dir = (audit_dir or AUDIT_LOG_DIR) / "runs"
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.now(UTC)
+    daily_file = target_dir / f"{now.strftime('%Y-%m-%d')}.jsonl"
+
+    ok_count = sum(1 for r in run_records if r.get("ok"))
+    entry = {
+        "run_at": now.isoformat(),
+        "entities_queried": len(run_records),
+        "queries_ok": ok_count,
+        "queries_failed": len(run_records) - ok_count,
+        "sources_used": sorted({str(r.get("source")) for r in run_records}),
+        "results": run_records,
+    }
+    with daily_file.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    return daily_file
+
+
 def append_ct_observations_to_audit_log(
     observations: list[ConnectorObservation],
     audit_dir: Path | None = None,
@@ -293,8 +469,8 @@ def append_ct_observations_to_audit_log(
                 try:
                     entry = json.loads(line)
                     existing_domains.add(entry.get("domain", ""))
-                except Exception:
-                    pass
+                except json.JSONDecodeError:
+                    logger.debug("Línea ilegible en el registro diario de CT; se ignora")
 
     new_lines: list[str] = []
     for obs in observations:
@@ -334,19 +510,24 @@ def append_ct_observations_to_audit_log(
         try:
             manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
             manifest["updated_at"] = now.isoformat()
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("Manifest de CT ilegible, se regenera: %s", exc)
 
     total_count = 0
     daily_files_meta: dict[str, Any] = {}
-    for jsonl_path in sorted(target_dir.glob("*.jsonl")):
+    for jsonl_path in sorted(target_dir.glob("**/*.jsonl")):
         content = jsonl_path.read_bytes()
         file_sha256 = hashlib.sha256(content).hexdigest()
         count = len(
-            [l for l in content.decode("utf-8", errors="ignore").splitlines() if l.strip()]
+            [
+                line
+                for line in content.decode("utf-8", errors="ignore").splitlines()
+                if line.strip()
+            ]
         )
         total_count += count
-        daily_files_meta[jsonl_path.name] = {
+        relative_name = jsonl_path.relative_to(target_dir).as_posix()
+        daily_files_meta[relative_name] = {
             "sha256": file_sha256,
             "entry_count": count,
             "size_bytes": len(content),
@@ -467,7 +648,20 @@ async def sync_ct_monitor(settings: Settings) -> int:
         ]
     connector = CertificateTransparencyConnector(target_entities=entities)
     observations = await connector.fetch()
+
+    # El sellado de la ronda es independiente de que haya hallazgos: es la prueba
+    # de que ese día se miró, y de si crt.sh respondió o no.
+    if connector.run_records:
+        try:
+            await asyncio.to_thread(append_ct_run_log, connector.run_records)
+        except Exception as exc:  # nunca debe tumbar la recolección
+            logger.warning("No se pudo sellar el registro de ejecución CT: %s", exc)
+
     if not observations:
+        try:
+            await asyncio.to_thread(append_ct_observations_to_audit_log, [])
+        except Exception as exc:
+            logger.warning("No se pudo actualizar el manifest CT: %s", exc)
         return 0
     return await asyncio.to_thread(store_ct_observations, observations, connector.version)
 

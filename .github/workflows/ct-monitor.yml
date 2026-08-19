@@ -1,0 +1,79 @@
+name: ct-monitor
+
+# Recolección de Certificate Transparency y sellado temporal del registro.
+#
+# El commit lo hace GitHub, no una máquina local: eso convierte el historial del
+# repositorio en una atestación de un tercero sobre CUÁNDO se observó cada dominio.
+# Es la base de la afirmación "lo detectamos el día D", así que el workflow nunca
+# debe reescribir hacia atrás: solo añade.
+
+on:
+  schedule:
+    # Cada 3 horas. GitHub puede retrasar las ejecuciones programadas bajo carga;
+    # para este uso da igual, porque lo que importa es la marca de tiempo real
+    # que escribe el propio monitor, no la hora nominal del cron.
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ct-monitor
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-runtime.lock
+          pip install --no-deps .
+
+      - name: Ejecutar ronda de recolección
+        env:
+          ENABLE_CT_MONITOR: "true"
+          # SQLite local y efímero: en Actions solo interesa el registro versionado,
+          # no la persistencia en base de datos.
+          DATABASE_URL: "sqlite:///./ct_runner.db"
+          SERVER_PEPPER: "ci-ephemeral-not-a-secret"
+        run: |
+          python -c "
+          import asyncio
+          from app.config import get_settings
+          from app.services.ct_monitor import sync_ct_monitor
+          count = asyncio.run(sync_ct_monitor(get_settings()))
+          print(f'observaciones nuevas: {count}')
+          "
+
+      - name: Sellar el registro en git
+        run: |
+          git config user.name "ct-monitor[bot]"
+          git config user.email "ct-monitor@users.noreply.github.com"
+          git add data/ct_observations
+          if git diff --staged --quiet; then
+            echo "Sin cambios que sellar en esta ronda."
+            exit 0
+          fi
+          git commit -m "chore(ct): observaciones $(date -u +'%Y-%m-%dT%H:%MZ')"
+          # Otra ronda puede haber comiteado mientras tanto: reintegrar antes de empujar.
+          for intento in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            git pull --rebase --autostash || true
+            sleep 5
+          done
+          echo "No se pudo empujar el registro tras 3 intentos" >&2
+          exit 1

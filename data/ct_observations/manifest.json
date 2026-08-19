@@ -1,11 +1,11 @@
 {
-  "updated_at": "2026-08-19T17:42:47.680722+00:00",
+  "updated_at": "2026-08-19T18:13:47.362172+00:00",
   "daily_files": {
-    "2026-08-19.jsonl": {
-      "sha256": "7677e370991cafc872dc1145cbffad94a42e9c147f24c5d0359a6cded29726ea",
-      "entry_count": 2,
-      "size_bytes": 770
+    "runs/2026-08-19.jsonl": {
+      "sha256": "baf9fe55165c548804438bc326828436678d791a212285a1207593d1cfc72c0b",
+      "entry_count": 1,
+      "size_bytes": 872
     }
   },
-  "total_observations": 2
+  "total_observations": 1
 }
