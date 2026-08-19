@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 
 from app.config import Settings
 from app.schemas import SignalSeverity, SignalStatus

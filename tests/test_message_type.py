@@ -47,6 +47,7 @@ def test_parcel_notification_is_transactional() -> None:
 def test_100_spanish_sms_spam_dataset_detection() -> None:
     import json
     from pathlib import Path
+
     from app.services.extraction import local_extract
 
     dataset_path = Path(__file__).resolve().parents[1] / "data" / "sms_spam_100_es.jsonl"

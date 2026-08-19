@@ -52,13 +52,7 @@ jobs:
           DATABASE_URL: "sqlite:///./ct_runner.db"
           SERVER_PEPPER: "ci-ephemeral-not-a-secret"
         run: |
-          python -c "
-          import asyncio
-          from app.config import get_settings
-          from app.services.ct_monitor import sync_ct_monitor
-          count = asyncio.run(sync_ct_monitor(get_settings()))
-          print(f'observaciones nuevas: {count}')
-          "
+          python -m app.ct_monitor sync
 
       - name: Sellar el registro en git
         run: |

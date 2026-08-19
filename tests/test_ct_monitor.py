@@ -190,3 +190,20 @@ async def test_sync_ct_monitor_integration() -> None:
         count = await sync_ct_monitor(settings)
         assert count == 1
 
+
+def test_ct_monitor_cli_main(capsys: pytest.CaptureFixture[str]) -> None:
+    from app.ct_monitor import main
+
+    with (
+        patch("sys.argv", ["ct_monitor.py", "sync"]),
+        patch(
+            "app.ct_monitor.sync_ct_monitor",
+            new_callable=AsyncMock,
+            return_value=3,
+        ),
+    ):
+        main()
+        captured = capsys.readouterr()
+        assert "observaciones nuevas: 3" in captured.out
+
+
