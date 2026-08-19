@@ -147,9 +147,9 @@ class CertificateTransparencyConnector:
     def __init__(
         self,
         target_entities: list[str] | None = None,
-        timeout: float = 30.0,
-        max_retries: int = 3,
-        backoff_factor: float = 15.0,
+        timeout: float = 10.0,
+        max_retries: int = 2,
+        backoff_factor: float = 2.0,
         enable_postgres_fallback: bool = True,
     ) -> None:
         self.target_entities = target_entities or [
@@ -229,9 +229,9 @@ class CertificateTransparencyConnector:
             try:
                 with psycopg.connect(
                     "postgresql://guest@crt.sh:5432/certwatch",
-                    connect_timeout=15,
+                    connect_timeout=4,
                 ) as conn, conn.cursor() as cur:
-                    cur.execute("SET statement_timeout = 25000")
+                    cur.execute("SET statement_timeout = 4000")
                     cur.execute(sql, (f"%{search_token}%",))
                     columns = [d[0] for d in cur.description]
                     rows = [dict(zip(columns, r, strict=True)) for r in cur.fetchall()]
@@ -247,12 +247,57 @@ class CertificateTransparencyConnector:
 
         return await asyncio.to_thread(_query)
 
+    async def _fetch_via_certspotter(
+        self,
+        entity: KnownEntity,
+        client: httpx.AsyncClient,
+    ) -> list[dict[str, Any]] | None:
+        """Respaldo mediante la API pública de CertSpotter (SSLMate).
+
+        Se consulta para los dominios oficiales de la entidad y subdominios asociados.
+        Devuelve None si hubo error en todas las peticiones para distinguirlo de 0 hallazgos.
+        """
+        if not entity.official_domains:
+            return None
+
+        results: list[dict[str, Any]] = []
+        any_success = False
+
+        headers = {"User-Agent": "AlertaClara/1.0 (CT-Monitor; Security Research)"}
+        for domain in entity.official_domains:
+            url = f"https://api.certspotter.com/v1/issuances?domain={domain}&include_subdomains=true&expand=dns_names&expand=issuer"
+            try:
+                response = await client.get(url, headers=headers, timeout=self.timeout)
+                if response.status_code == 200:
+                    any_success = True
+                    data = response.json()
+                    if isinstance(data, list):
+                        for item in data:
+                            dns_names = item.get("dns_names") or []
+                            issuer = item.get("issuer") or {}
+                            issuer_name = issuer.get("name") or issuer.get("friendly_name") or ""
+                            results.append(
+                                {
+                                    "id": item.get("id"),
+                                    "name_value": "\n".join(dns_names),
+                                    "issuer_name": issuer_name,
+                                    "entry_timestamp": item.get("not_before"),
+                                    "not_before": item.get("not_before"),
+                                    "not_after": item.get("not_after"),
+                                    "common_name": dns_names[0] if dns_names else None,
+                                }
+                            )
+            except Exception as exc:
+                logger.debug("Error en CertSpotter para %s: %s", domain, exc)
+
+        return results if any_success else None
+
     async def fetch_entity_certificates(
         self,
         entity_name: str,
         client: httpx.AsyncClient,
     ) -> list[dict[str, Any]]:
-        """Consulta crt.sh con reintentos, backoff y respaldo por Postgres."""
+        """Consulta crt.sh con reintentos, backoff y respaldos por Postgres y CertSpotter."""
         entity = get_entity(entity_name)
         if not entity:
             self._record_run(
@@ -313,33 +358,39 @@ class CertificateTransparencyConnector:
             if attempt < self.max_retries:
                 await asyncio.sleep(self.backoff_factor * attempt)
 
-        fallback = await self._fetch_via_postgres(search_token)
-        if fallback is not None:
+        fallback_pg = await self._fetch_via_postgres(search_token)
+        if fallback_pg is not None:
             self._record_run(
                 entity_name,
                 source="crtsh_postgres",
                 ok=True,
-                certificates=len(fallback),
+                certificates=len(fallback_pg),
                 attempts=attempts,
                 last_status=last_status,
             )
-            return fallback
+            return fallback_pg
 
-        # Ambas vías agotadas: se deja constancia explícita de que se intentaron las dos,
-        # para que el registro diario distinga "no había nada" de "no se pudo consultar".
-        fallback_note = (
-            "respaldo_postgres_fallido"
-            if self.enable_postgres_fallback
-            else "respaldo_postgres_desactivado"
-        )
+        fallback_spotter = await self._fetch_via_certspotter(entity, client)
+        if fallback_spotter is not None:
+            self._record_run(
+                entity_name,
+                source="certspotter",
+                ok=True,
+                certificates=len(fallback_spotter),
+                attempts=attempts,
+                last_status=last_status,
+            )
+            return fallback_spotter
+
+        # Vías agotadas: se deja constancia explícita
         self._record_run(
             entity_name,
-            source="crtsh_http+postgres",
+            source="crtsh_http+postgres+certspotter",
             ok=False,
             certificates=0,
             attempts=attempts,
             last_status=last_status,
-            error=f"{last_error or 'sin_respuesta_utilizable'}/{fallback_note}",
+            error=f"{last_error or 'sin_respuesta_utilizable'}/todos_los_respaldos_fallidos",
         )
         return []
 
