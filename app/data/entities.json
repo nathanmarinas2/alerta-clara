@@ -2,7 +2,7 @@
   {
     "name": "CaixaBank",
     "category": "bank",
-    "aliases": ["caixabank", "la caixa"],
+    "aliases": ["caixabank", "la caixa", "caixabanknow", "caixabank now"],
     "official_domains": [
       "caixabank.es",
       "caixabank.com",
@@ -471,6 +471,117 @@
     "official_domains": [
       "aliexpress.com",
       "aliexpress.es"
+    ],
+    "official_numbers": []
+  },
+  {
+    "name": "Openbank",
+    "category": "bank",
+    "aliases": ["openbank", "open bank"],
+    "official_domains": [
+      "openbank.es",
+      "openbank.com"
+    ],
+    "official_numbers": [
+      {
+        "number": "911773310",
+        "source": "https://www.openbank.es/ayuda/contacto",
+        "verified_at": "2026-08-19",
+        "purpose": "Atención al cliente Openbank"
+      }
+    ]
+  },
+  {
+    "name": "FedEx",
+    "category": "logistics",
+    "aliases": ["fedex"],
+    "official_domains": [
+      "fedex.com",
+      "fedex.es"
+    ],
+    "official_numbers": []
+  },
+  {
+    "name": "Bizum",
+    "category": "payment",
+    "aliases": ["bizum"],
+    "official_domains": [
+      "bizum.es"
+    ],
+    "official_numbers": []
+  },
+  {
+    "name": "Policía Nacional",
+    "category": "public_administration",
+    "aliases": ["policia nacional", "policia", "policía", "policía nacional", "policianacional"],
+    "official_domains": [
+      "policia.es",
+      "policianacional.es",
+      "interior.gob.es"
+    ],
+    "official_numbers": [
+      {
+        "number": "091",
+        "source": "https://www.policia.es",
+        "verified_at": "2026-08-19",
+        "purpose": "Emergencias Policía Nacional"
+      }
+    ]
+  },
+  {
+    "name": "Ministerio de Justicia",
+    "category": "public_administration",
+    "aliases": ["ministerio de justicia", "ministeriojusticia", "justicia"],
+    "official_domains": [
+      "mjusticia.gob.es",
+      "justicia.gob.es",
+      "administraciondejusticia.gob.es"
+    ],
+    "official_numbers": []
+  },
+  {
+    "name": "Binance",
+    "category": "crypto",
+    "aliases": ["binance", "binancealerts"],
+    "official_domains": [
+      "binance.com",
+      "binance.es"
+    ],
+    "official_numbers": []
+  },
+  {
+    "name": "MetaMask",
+    "category": "crypto",
+    "aliases": ["metamask"],
+    "official_domains": [
+      "metamask.io"
+    ],
+    "official_numbers": []
+  },
+  {
+    "name": "Coinbase",
+    "category": "crypto",
+    "aliases": ["coinbase"],
+    "official_domains": [
+      "coinbase.com"
+    ],
+    "official_numbers": []
+  },
+  {
+    "name": "Crypto.com",
+    "category": "crypto",
+    "aliases": ["crypto.com", "cryptocom"],
+    "official_domains": [
+      "crypto.com"
+    ],
+    "official_numbers": []
+  },
+  {
+    "name": "Ledger",
+    "category": "crypto",
+    "aliases": ["ledger", "ledger security"],
+    "official_domains": [
+      "ledger.com"
     ],
     "official_numbers": []
   }

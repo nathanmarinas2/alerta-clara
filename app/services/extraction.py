@@ -32,16 +32,21 @@ ACTION_PATTERNS: tuple[tuple[RequestedAction, re.Pattern[str]], ...] = (
     (
         RequestedAction.GIVE_CREDENTIALS,
         re.compile(
-            r"\b(?:verific(?:a|ar)|verifique|confirm(?:a|e|ar)|actualiz(?:a|ar)|actualice|"
-            r"introduc(?:e|ir|zca)|acced(?:e|a|er)).{0,45}"
-            r"(?:datos|credenciales|contrase[ñn]a|usuario|tarjeta|cuenta)\b",
+            r"\b(?:verifi(?:car?|que|caci[oó]n)|confirm(?:ar?|e|aci[oó]n)|actuali(?:zar?|ce|zaci[oó]n)|"
+            r"introdu(?:cir?|zca|ce)|ingres(?:ar?|e)|valid(?:ar?|e|aci[oó]n)|complet(?:ar?|e)|"
+            r"identifi(?:car?|que|caci[oó]n)|regulari(?:zar?|ce)|modifi(?:car?|que)|"
+            r"aport(?:ar?|e)|adjunt(?:ar?|e)|acced(?:er?|a|e)).{0,55}"
+            r"(?:datos|credenciales|contrase[ñn]a|clave|usuario|tarjeta|cuenta|dnis?|nifs?|ibans?|"
+            r"c[oó]digo postal|domicilio|direcci[oó]n|identidad|palabras? clave|frase de recuperaci[oó]n|semilla)\b",
             re.IGNORECASE | re.DOTALL,
         ),
     ),
     (
         RequestedAction.TRANSFER,
         re.compile(
-            r"\b(?:transferencia|transfiere|bizum|paga|pago|ingresa|env[ií]a dinero)\b",
+            r"\b(?:transferencia|transfiere|bizum|paga|pague|pagar|pago|abon(?:a|e|ar|o|en)|"
+            r"liquid(?:a|e|ar)|satisfac(?:er|aga)|ingres(?:a|e|ar)|reembols(?:a|o|ar)|"
+            r"arancel(?:es)?|tasas?\s+aduaneras?|env[ií]a dinero)\b",
             re.IGNORECASE,
         ),
     ),
@@ -56,8 +61,10 @@ ACTION_PATTERNS: tuple[tuple[RequestedAction, re.Pattern[str]], ...] = (
         RequestedAction.CLICK_LINK,
         re.compile(
             r"\b(?:puls(?:a|e|ar)|pinch(?:a|e|ar)|ha(?:z|ga) clic|acced(?:e|a|er)|"
-            r"entr(?:a|e|ar)|consult(?:a|e|ar)|visit(?:a|e|ar)).{0,30}"
-            r"(?:enlace|link|web|https?://|www\.)",
+            r"entr(?:a|e|ar)|consult(?:a|e|ar)|visit(?:a|e|ar)|revis(?:a|e|ar)|"
+            r"canje(?:a|e|ar)|descarg(?:a|ue|ar)|reclam(?:a|e|ar)|reprogram(?:a|e|ar)|"
+            r"solicit(?:a|e|ar)|tramit(?:a|e|ar)|regulariz(?:a|e|ar)).{0,75}"
+            r"(?:enlace|link|web|sede|portal|formulario|https?://|www\.)",
             re.IGNORECASE | re.DOTALL,
         ),
     ),
