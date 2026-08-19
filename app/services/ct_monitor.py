@@ -9,6 +9,7 @@ certificados de campaña fraudulentos (DV recientes en dominios no oficiales).
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 from datetime import UTC, datetime
@@ -262,3 +263,128 @@ class CertificateTransparencyConnector:
                         observations.append(obs)
 
         return observations
+
+
+def store_ct_observations(
+    observations: list[ConnectorObservation],
+    version: str = "1.0.0",
+) -> int:
+    """Persiste observaciones de CT en FeedSnapshot y ThreatIndicator."""
+    if not observations:
+        return 0
+
+    from app.database import SessionLocal
+    from app.models import FeedSnapshot, ThreatIndicator
+    from app.services.threat_intel import indicator_hash
+
+    with SessionLocal() as db:
+        now = datetime.now(UTC)
+        values = {obs.value for obs in observations}
+        checksum = hashlib.sha256("".join(sorted(values)).encode()).hexdigest()
+        snapshot = FeedSnapshot(
+            provider="crtsh_ct",
+            version=version,
+            checksum=checksum,
+            entry_count=len(observations),
+            fetched_at=now,
+            succeeded=True,
+        )
+        db.add(snapshot)
+        db.flush()
+
+        rows = [
+            {
+                "id": hashlib.sha256(
+                    f"{obs.provider}|{obs.indicator_type}|{obs.value}".encode()
+                ).hexdigest()[:36],
+                "provider": obs.provider,
+                "snapshot_id": snapshot.id,
+                "indicator_type": obs.indicator_type,
+                "value_hash": indicator_hash(obs.value),
+                "value_public": obs.value,
+                "status": obs.status,
+                "first_seen": obs.first_seen or now,
+                "last_seen": obs.last_seen or now,
+            }
+            for obs in observations
+        ]
+
+        dialect = db.bind.dialect.name if db.bind else ""
+        for offset in range(0, len(rows), 5_000):
+            chunk = rows[offset : offset + 5_000]
+            if dialect == "sqlite":
+                from sqlalchemy.dialects.sqlite import insert
+
+                statement = insert(ThreatIndicator).values(chunk)
+            elif dialect == "postgresql":
+                from sqlalchemy.dialects.postgresql import insert
+
+                statement = insert(ThreatIndicator).values(chunk)
+            else:
+                statement = None
+            if statement is not None:
+                statement = statement.on_conflict_do_update(
+                    index_elements=["provider", "indicator_type", "value_hash"],
+                    set_={
+                        "snapshot_id": snapshot.id,
+                        "value_public": statement.excluded.value_public,
+                        "status": "active",
+                        "last_seen": now,
+                    },
+                )
+                db.execute(statement)
+            else:
+                from sqlalchemy import select
+
+                for row in chunk:
+                    existing = db.scalar(
+                        select(ThreatIndicator).where(
+                            ThreatIndicator.provider == row["provider"],
+                            ThreatIndicator.indicator_type == row["indicator_type"],
+                            ThreatIndicator.value_hash == row["value_hash"],
+                        )
+                    )
+                    if existing:
+                        existing.snapshot_id = snapshot.id
+                        existing.status = "active"
+                        existing.last_seen = now
+                    else:
+                        db.add(ThreatIndicator(**row))
+        db.commit()
+        return len(observations)
+
+
+async def sync_ct_monitor(settings: Settings) -> int:
+    """Ejecuta una ronda de recolección de CT y persiste los indicadores."""
+    entities = None
+    if settings.ct_monitor_target_entities:
+        entities = [
+            e.strip() for e in settings.ct_monitor_target_entities.split(",") if e.strip()
+        ]
+    connector = CertificateTransparencyConnector(target_entities=entities)
+    observations = await connector.fetch()
+    if not observations:
+        return 0
+    return await asyncio.to_thread(store_ct_observations, observations, connector.version)
+
+
+async def ct_monitor_loop(settings: Settings) -> None:
+    """Bucle periódico en segundo plano para monitorización de Certificate Transparency."""
+    interval = max(600, settings.ct_monitor_interval_seconds)
+    while True:
+        try:
+            count = await sync_ct_monitor(settings)
+            logger.info("CT Monitor: sincronizados %d dominios sospechosos", count)
+            if count > 0:
+                from app.database import SessionLocal
+                from app.services.retrohunt import run_retro_hunt
+
+                def hunt() -> None:
+                    with SessionLocal() as db:
+                        run_retro_hunt(db)
+
+                await asyncio.to_thread(hunt)
+        except Exception as exc:
+            logger.warning("Error en ciclo de CT Monitor: %s", exc)
+        await asyncio.sleep(interval)
+

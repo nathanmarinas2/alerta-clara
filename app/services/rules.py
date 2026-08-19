@@ -33,6 +33,10 @@ SIGNAL_FAMILIES: dict[str, str] = {
     "combo_squatting": "identity_and_channel",
     "official_domain_match": "identity_and_channel",
     "requested_action": "identity_and_channel",
+    "cnmc_alias_mismatch": "identity_and_channel",
+    "cnmc_alias_unregistered": "identity_and_channel",
+    "cnmc_alias_verified": "identity_and_channel",
+    "visual_brand_clone": "identity_and_channel",
     # 2. Presión psicológica y urgencia
     "urgency_language": "behavioral_pressure",
     "qr_payment_request": "behavioral_pressure",
@@ -63,6 +67,7 @@ SIGNAL_FAMILIES: dict[str, str] = {
     # 8. Reglas deterministas críticas
     "remote_access": "critical_payload",
     "requests_security_code": "critical_payload",
+    "family_impersonation_emergency": "critical_payload",
 }
 
 

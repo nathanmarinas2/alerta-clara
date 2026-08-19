@@ -86,7 +86,8 @@ async def collect_browser_signals(
         original_domain = registrable_domain(target)
         final_domain = registrable_domain(final_url)
         cross_domain = bool(final_domain and final_domain != original_domain)
-        return [
+
+        signals = [
             _result_signal(
                 "browser_credential_form",
                 {
@@ -134,6 +135,38 @@ async def collect_browser_signals(
                 version=settings.signalset_version,
             ),
         ]
+
+        # Detección de clon visual mediante pHash / comparación perceptual
+        visual_clone_entity = payload.get("visual_clone_entity")
+        visual_sim = float(payload.get("visual_similarity", 0.0))
+        if visual_clone_entity and visual_sim >= 0.85:
+            signals.append(
+                EvidenceSignal(
+                    check_name="visual_brand_clone",
+                    value={
+                        "cloned_entity": str(visual_clone_entity),
+                        "visual_similarity": visual_sim,
+                        "phash": payload.get("phash"),
+                        "final_domain": final_domain,
+                    },
+                    weight=100,
+                    severity=SignalSeverity.CRITICAL,
+                    summary=(
+                        f"La página es un clon visual de la web oficial de {visual_clone_entity} "
+                        f"({int(visual_sim * 100)}% de coincidencia visual)."
+                    ),
+                    detail=(
+                        "El análisis perceptual de la interfaz confirma la suplantación visual de "
+                        "la marca legítima."
+                    ),
+                    hard_rule=True,
+                    status=SignalStatus.HIT,
+                    source="browser_sidecar",
+                    version=settings.signalset_version,
+                )
+            )
+
+        return signals
     except httpx.TimeoutException:
         return [
             EvidenceSignal(

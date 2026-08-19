@@ -24,6 +24,7 @@ from app.schemas import (
     SignalSeverity,
     SignalStatus,
 )
+from app.services.alias_registry import verify_sender_alias
 from app.services.ml_classifier import predict_phishing
 from app.services.network import follow_redirects, rdap_lookup, tls_certificate
 from app.services.redaction import find_sensitive_types
@@ -37,6 +38,25 @@ REMOTE_ACCESS_RE = re.compile(
 )
 CODE_RE = re.compile(r"\b(?:c[oó]digo\s*(?:sms)?|otp|clave\s*(?:sms)?|pin)\b", re.IGNORECASE)
 MOBILE_RE = re.compile(r"^(?:34)?[67]\d{8}$")
+FAMILY_TERMS_RE = re.compile(
+    r"\b(?:mam[aá]|pap[aá]|mami|papi|hijo|hija|hermano|hermana|abuelo|abuela)\b",
+    re.IGNORECASE,
+)
+DEVICE_BROKEN_RE = re.compile(
+    r"\b(?:se me ha (?:ca[ií]do|roto|apagado)|roto el (?:m[oó]vil|tel[eé]fono)|"
+    r"perdido el (?:m[oó]vil|tel[eé]fono)|nuevo n[uú]mero|n[uú]mero provisional|n[uú]mero temporal|"
+    r"SIM temporal|cambiado de n[uú]mero|altavoz roto)\b",
+    re.IGNORECASE,
+)
+WHATSAPP_CONTACT_RE = re.compile(
+    r"\b(?:escr[ií]beme (?:por|un) whats?app|h[aá]blame por whats?app|m[aá]ndame un whats?app|"
+    r"whats?app a este n[uú]mero|nuevo whats?app|hablame por whats?app|escribeme por whats?app)\b",
+    re.IGNORECASE,
+)
+MONEY_EMERGENCY_RE = re.compile(
+    r"\b(?:dinero|pagar|pago|factura|alquiler|matr[ií]cula|transferencia|cuenta|bizum|saldo|eur(?:os?)?|€)\b",
+    re.IGNORECASE,
+)
 PHISHING_URL_RE = re.compile(
     r"(?:login|signin|acceso|verific(?:a|ar|acion)|seguridad|cuenta|password|"
     r"contrase(?:n|ñ)a|premio|factura|pago|actualiz(?:a|ar))",
@@ -290,6 +310,11 @@ class SignalCollector:
         requests_code = bool(
             extraction.requested_action == RequestedAction.GIVE_CODE
             and CODE_RE.search(detection_text)
+            and not re.search(
+                r"\b(?:no|nunca|jam[aá]s)\s+(?:compartas?|facilites?|des|indiques?|env[ií]es?|reveles?)\b",
+                detection_text,
+                re.IGNORECASE,
+            )
         )
         signals.append(
             _signal(
@@ -304,6 +329,38 @@ class SignalCollector:
                 ),
                 hard_rule=True,
                 status=SignalStatus.HIT if requests_code else SignalStatus.MISS,
+                version=version,
+            )
+        )
+
+        family_emergency = bool(
+            FAMILY_TERMS_RE.search(detection_text)
+            and DEVICE_BROKEN_RE.search(detection_text)
+            and WHATSAPP_CONTACT_RE.search(detection_text)
+            and (
+                extraction.requested_action
+                in {RequestedAction.TRANSFER, RequestedAction.GIVE_CREDENTIALS}
+                or MONEY_EMERGENCY_RE.search(detection_text)
+            )
+        )
+        signals.append(
+            _signal(
+                "family_impersonation_emergency",
+                family_emergency,
+                60,
+                SignalSeverity.WARNING,
+                (
+                    "Patrón de estafa 'Hijo en apuros': simula ser un familiar con el teléfono "
+                    "roto pidiendo contactar por WhatsApp para un pago o emergencia económica."
+                    if family_emergency
+                    else "No se detectó el patrón de suplantación de un familiar en emergencia económica."
+                ),
+                detail=(
+                    "Modus operandi en España donde atacantes fingen ser hijos o familiares en "
+                    "apuros para exigir transferencias de dinero urgente."
+                ),
+                hard_rule=False,
+                status=SignalStatus.HIT if family_emergency else SignalStatus.MISS,
                 version=version,
             )
         )
@@ -402,6 +459,18 @@ class SignalCollector:
                     version=version,
                 )
             )
+
+        # Verificación oficial de remitente alfanumérico en el Registro de Alias de la CNMC
+        if self.settings.enable_cnmc_alias_registry:
+            sender_candidate = extraction.sender_alias or extraction.sender_number
+            if sender_candidate:
+                signals.extend(
+                    verify_sender_alias(
+                        sender_candidate,
+                        extraction.claimed_entity,
+                        self.settings,
+                    )
+                )
 
         urgency = bool(extraction.urgency_markers)
         signals.append(

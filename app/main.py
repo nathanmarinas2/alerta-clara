@@ -44,6 +44,7 @@ from app.schemas import (
     ReviewResolutionRequest,
 )
 from app.services.browser import browser_health
+from app.services.ct_monitor import ct_monitor_loop
 from app.services.ocr import extract_text_from_image
 from app.services.pipeline import AnalysisPipeline
 from app.services.qr import decode_qr_payloads
@@ -111,6 +112,8 @@ async def lifespan(_app: FastAPI):
     background_tasks = [asyncio.create_task(retention_loop(settings))]
     if settings.enable_threat_feeds:
         background_tasks.append(asyncio.create_task(threat_feed_loop(settings)))
+    if settings.enable_ct_monitor:
+        background_tasks.append(asyncio.create_task(ct_monitor_loop(settings)))
     try:
         yield
     finally:

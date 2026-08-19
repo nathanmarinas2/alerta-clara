@@ -1,0 +1,305 @@
+{
+  "source": "CNMC Registro de Alias (Circular 1/2026 de la CNMC; BOE-A-2026-7043)",
+  "version": "2026.08.1",
+  "enforcement_date": "2026-09-15",
+  "ttl_seconds": 86400,
+  "aliases": [
+    {
+      "alias": "CaixaBank",
+      "holder_name": "CaixaBank, S.A.",
+      "cif_nif": "A08663619",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["CaixaBank"]
+    },
+    {
+      "alias": "CaixaBankNow",
+      "holder_name": "CaixaBank, S.A.",
+      "cif_nif": "A08663619",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["CaixaBank"]
+    },
+    {
+      "alias": "imagin",
+      "holder_name": "CaixaBank, S.A.",
+      "cif_nif": "A08663619",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["CaixaBank", "imagin"]
+    },
+    {
+      "alias": "BBVA",
+      "holder_name": "Banco Bilbao Vizcaya Argentaria, S.A.",
+      "cif_nif": "A48265169",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["BBVA"]
+    },
+    {
+      "alias": "Santander",
+      "holder_name": "Banco Santander, S.A.",
+      "cif_nif": "A39000013",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["Banco Santander"]
+    },
+    {
+      "alias": "BSantander",
+      "holder_name": "Banco Santander, S.A.",
+      "cif_nif": "A39000013",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["Banco Santander"]
+    },
+    {
+      "alias": "Openbank",
+      "holder_name": "Open Bank, S.A.",
+      "cif_nif": "A28021079",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["Openbank", "Banco Santander"]
+    },
+    {
+      "alias": "Sabadell",
+      "holder_name": "Banco de Sabadell, S.A.",
+      "cif_nif": "A08000143",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["Banco Sabadell"]
+    },
+    {
+      "alias": "BSabadell",
+      "holder_name": "Banco de Sabadell, S.A.",
+      "cif_nif": "A08000143",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["Banco Sabadell"]
+    },
+    {
+      "alias": "Bankinter",
+      "holder_name": "Bankinter, S.A.",
+      "cif_nif": "A28157360",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["Bankinter"]
+    },
+    {
+      "alias": "ING",
+      "holder_name": "ING Bank N.V. Sucursal en España",
+      "cif_nif": "W0067664G",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["ING"]
+    },
+    {
+      "alias": "Abanca",
+      "holder_name": "Abanca Corporación Bancaria, S.A.",
+      "cif_nif": "A70302039",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["Abanca"]
+    },
+    {
+      "alias": "Unicaja",
+      "holder_name": "Unicaja Banco, S.A.",
+      "cif_nif": "A93139053",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["Unicaja Banco"]
+    },
+    {
+      "alias": "Kutxabank",
+      "holder_name": "Kutxabank, S.A.",
+      "cif_nif": "A95653077",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["Kutxabank"]
+    },
+    {
+      "alias": "Ibercaja",
+      "holder_name": "Ibercaja Banco, S.A.",
+      "cif_nif": "A99319030",
+      "category": "banca_finanzas",
+      "status": "active",
+      "activation_date": "2026-05-01",
+      "authorized_entities": ["Ibercaja"]
+    },
+    {
+      "alias": "CORREOS",
+      "holder_name": "Sociedad Estatal Correos y Telégrafos, S.A., S.M.E.",
+      "cif_nif": "A83052407",
+      "category": "logistica_paqueteria",
+      "status": "active",
+      "activation_date": "2026-04-15",
+      "authorized_entities": ["Correos"]
+    },
+    {
+      "alias": "CorreosExpress",
+      "holder_name": "Correos Express Paquetería Urgente, S.A., S.M.E.",
+      "cif_nif": "A78773710",
+      "category": "logistica_paqueteria",
+      "status": "active",
+      "activation_date": "2026-04-15",
+      "authorized_entities": ["Correos", "Correos Express"]
+    },
+    {
+      "alias": "SEUR",
+      "holder_name": "SEUR GeoPost, S.L.",
+      "cif_nif": "B82302308",
+      "category": "logistica_paqueteria",
+      "status": "active",
+      "activation_date": "2026-04-15",
+      "authorized_entities": ["SEUR"]
+    },
+    {
+      "alias": "DHL",
+      "holder_name": "DHL Express Barcelona, S.L.",
+      "cif_nif": "B62560347",
+      "category": "logistica_paqueteria",
+      "status": "active",
+      "activation_date": "2026-04-15",
+      "authorized_entities": ["DHL"]
+    },
+    {
+      "alias": "GLS",
+      "holder_name": "General Logistics Spain, S.L.",
+      "cif_nif": "B84180488",
+      "category": "logistica_paqueteria",
+      "status": "active",
+      "activation_date": "2026-04-15",
+      "authorized_entities": ["GLS"]
+    },
+    {
+      "alias": "MRW",
+      "holder_name": "Ibermensajería, S.A.",
+      "cif_nif": "A08836520",
+      "category": "logistica_paqueteria",
+      "status": "active",
+      "activation_date": "2026-04-15",
+      "authorized_entities": ["MRW"]
+    },
+    {
+      "alias": "DGT",
+      "holder_name": "Dirección General de Tráfico",
+      "cif_nif": "S2816003D",
+      "category": "administracion_publica",
+      "status": "active",
+      "activation_date": "2026-03-01",
+      "authorized_entities": ["DGT"]
+    },
+    {
+      "alias": "InfoDGT",
+      "holder_name": "Dirección General de Tráfico",
+      "cif_nif": "S2816003D",
+      "category": "administracion_publica",
+      "status": "active",
+      "activation_date": "2026-03-01",
+      "authorized_entities": ["DGT"]
+    },
+    {
+      "alias": "AEAT",
+      "holder_name": "Agencia Estatal de Administración Tributaria",
+      "cif_nif": "Q2826000H",
+      "category": "administracion_publica",
+      "status": "active",
+      "activation_date": "2026-03-01",
+      "authorized_entities": ["Agencia Tributaria"]
+    },
+    {
+      "alias": "AgTributaria",
+      "holder_name": "Agencia Estatal de Administración Tributaria",
+      "cif_nif": "Q2826000H",
+      "category": "administracion_publica",
+      "status": "active",
+      "activation_date": "2026-03-01",
+      "authorized_entities": ["Agencia Tributaria"]
+    },
+    {
+      "alias": "Seg-Social",
+      "holder_name": "Tesorería General de la Seguridad Social",
+      "cif_nif": "Q2827003A",
+      "category": "administracion_publica",
+      "status": "active",
+      "activation_date": "2026-03-01",
+      "authorized_entities": ["Seguridad Social"]
+    },
+    {
+      "alias": "TGSS",
+      "holder_name": "Tesorería General de la Seguridad Social",
+      "cif_nif": "Q2827003A",
+      "category": "administracion_publica",
+      "status": "active",
+      "activation_date": "2026-03-01",
+      "authorized_entities": ["Seguridad Social"]
+    },
+    {
+      "alias": "Endesa",
+      "holder_name": "Endesa Energía, S.A.",
+      "cif_nif": "A81948077",
+      "category": "suministros_energia",
+      "status": "active",
+      "activation_date": "2026-05-15",
+      "authorized_entities": ["Endesa"]
+    },
+    {
+      "alias": "Iberdrola",
+      "holder_name": "Iberdrola Clientes, S.A.U.",
+      "cif_nif": "A95238135",
+      "category": "suministros_energia",
+      "status": "active",
+      "activation_date": "2026-05-15",
+      "authorized_entities": ["Iberdrola"]
+    },
+    {
+      "alias": "Naturgy",
+      "holder_name": "Naturgy Iberia, S.A.",
+      "cif_nif": "A08431090",
+      "category": "suministros_energia",
+      "status": "active",
+      "activation_date": "2026-05-15",
+      "authorized_entities": ["Naturgy"]
+    },
+    {
+      "alias": "Movistar",
+      "holder_name": "Telefónica de España, S.A.U.",
+      "cif_nif": "A28015865",
+      "category": "telecomunicaciones",
+      "status": "active",
+      "activation_date": "2026-04-01",
+      "authorized_entities": ["Movistar", "Telefónica"]
+    },
+    {
+      "alias": "Vodafone",
+      "holder_name": "Vodafone España, S.A.U.",
+      "cif_nif": "A80907397",
+      "category": "telecomunicaciones",
+      "status": "active",
+      "activation_date": "2026-04-01",
+      "authorized_entities": ["Vodafone"]
+    },
+    {
+      "alias": "Orange",
+      "holder_name": "Orange Espagne, S.A.U.",
+      "cif_nif": "A82009812",
+      "category": "telecomunicaciones",
+      "status": "active",
+      "activation_date": "2026-04-01",
+      "authorized_entities": ["Orange", "MasOrange"]
+    }
+  ]
+}

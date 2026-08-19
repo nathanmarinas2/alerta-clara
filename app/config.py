@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     threat_feed_refresh_seconds: int = 900
     threat_feed_max_bytes: int = 25 * 1024 * 1024
     threat_feed_stale_hours: int = 6
+    enable_ct_monitor: bool = False
+    ct_monitor_interval_seconds: int = 3600
+    ct_monitor_target_entities: str | None = None
+    enable_cnmc_alias_registry: bool = False
+    cnmc_registry_enforcement_date: str = "2026-09-15"
     enable_qr_decode: bool = True
     enable_local_ocr: bool = True
     ocr_min_confidence: float = 0.35

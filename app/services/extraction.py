@@ -23,9 +23,9 @@ ACTION_PATTERNS: tuple[tuple[RequestedAction, re.Pattern[str]], ...] = (
     (
         RequestedAction.GIVE_CODE,
         re.compile(
-            r"\b(?:facilit(?:a|e|ar)|compart(?:e|a|ir)|indic(?:a|e|ar)|dime|diga|"
-            r"introduc(?:e|ir|zca)|env[ií](?:a|e|ar)).{0,35}"
-            r"(?:c[oó]digo|clave sms|otp|pin)\b",
+            r"\b(?:facilit(?:a|e|ar|es)|compart(?:a|e|ir|as)|"
+            r"indic(?:a|e|ar|es)|env[ií](?:a|e|ar|es)|respond(?:a|e|er)\s+(?:a\s+este\s+mensaje\s+)?con|"
+            r"dime|diga)\b.{0,35}(?:c[oó]digo|clave\s*(?:sms)?|otp|pin)\b",
             re.IGNORECASE | re.DOTALL,
         ),
     ),
@@ -92,7 +92,14 @@ def local_extract(text: str, sender: str | None = None) -> MessageExtraction:
     entity = find_claimed_entity(detection_text)
     requested_action = RequestedAction.NONE
     for action, pattern in ACTION_PATTERNS:
-        if pattern.search(detection_text):
+        match = pattern.search(detection_text)
+        if match:
+            # Si parece GIVE_CODE pero está explícitamente negado ("no compartas"), es un aviso de seguridad
+            if action == RequestedAction.GIVE_CODE:
+                start_pos = max(0, match.start() - 15)
+                preceding = detection_text[start_pos : match.start()].casefold()
+                if any(neg in preceding for neg in ("no ", "nunca ", "jamas ", "jamás ")):
+                    continue
             requested_action = action
             break
 

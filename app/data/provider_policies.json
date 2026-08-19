@@ -35,6 +35,30 @@
       "ttl_seconds": 1800,
       "failure_policy": "keep_last_snapshot",
       "level_mapping": {"active": "malicious", "inactive": "info"}
+    },
+    {
+      "name": "destroylist",
+      "url": "https://raw.githubusercontent.com/phishdestroy/destroylist/main/destroylist.txt",
+      "format": "text",
+      "indicator_type": "domain",
+      "trust_tier": 3,
+      "hard_rule_eligible": false,
+      "timeout_seconds": 30,
+      "ttl_seconds": 3600,
+      "failure_policy": "keep_last_snapshot",
+      "level_mapping": {"active": "malicious", "inactive": "info"}
+    },
+    {
+      "name": "crtsh_ct",
+      "url": "https://crt.sh/",
+      "format": "custom",
+      "indicator_type": "domain",
+      "trust_tier": 3,
+      "hard_rule_eligible": false,
+      "timeout_seconds": 30,
+      "ttl_seconds": 259200,
+      "failure_policy": "keep_last_snapshot",
+      "level_mapping": {"active": "malicious", "inactive": "info"}
     }
   ]
 }

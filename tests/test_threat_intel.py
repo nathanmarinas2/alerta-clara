@@ -81,3 +81,14 @@ def test_domain_normalizer_rejects_non_domains() -> None:
     assert normalize_domain("EXAMPLE.ORG") == "example.org"
     assert normalize_domain("2026.08.18") is None
     assert normalize_domain("bad_label.example") is None
+
+
+def test_destroylist_and_crtsh_providers_configured() -> None:
+    providers = {p.name: p for p in load_provider_config().providers}
+    assert "destroylist" in providers
+    assert providers["destroylist"].indicator_type == "domain"
+    assert providers["destroylist"].format == "text"
+
+    assert "crtsh_ct" in providers
+    assert providers["crtsh_ct"].indicator_type == "domain"
+

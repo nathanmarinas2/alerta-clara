@@ -14,15 +14,62 @@ class MessageTypeAssessment:
 
 
 # Estas expresiones solo describen el tono/intención. Nunca elevan por sí solas el
-# veredicto de riesgo a ESTafa.
+# veredicto de riesgo a ESTAFA.
 COMMERCIAL_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
-    ("promoción u oferta", re.compile(r"\b(?:oferta|promoci[oó]n|descuento|rebajas?)\b", re.I)),
-    ("premio o sorteo", re.compile(r"\b(?:premio|sorteo|ganador(?:a)?|has ganado|regalo)\b", re.I)),
     (
-        "llamada comercial",
-        re.compile(r"\b(?:suscr[ií]bete|contrata|renueva|exclusiv[oa]|cup[oó]n)\b", re.I),
+        "promoción u oferta",
+        re.compile(
+            r"\b(?:oferta|promoci[oó]n|descuento|rebajas?|liquidaci[oó]n|outlet|2x1|choll[oa]|ganga)\b",
+            re.I,
+        ),
     ),
-    ("baja publicitaria", re.compile(r"\b(?:baja|cancelar suscripci[oó]n|no recibir)\b", re.I)),
+    (
+        "premio o sorteo",
+        re.compile(
+            r"\b(?:premio|sorteo|ganador(?:a)?|has ganado|agraciad[oa]|regalo|vale regalo|tarjeta regalo|cheque regalo|loter[ií]a|boleto)\b",
+            re.I,
+        ),
+    ),
+    (
+        "crédito o financiación",
+        re.compile(
+            r"\b(?:pr[eé]stamo|cr[eé]dito|microcr[eé]dito|dinero r[aá]pido|dinero urgente|asnef|financiaci[oó]n|sin n[oó]mina|preconcedido|liquidez|empe[ñn]o)\b",
+            re.I,
+        ),
+    ),
+    (
+        "juego o apuestas",
+        re.compile(
+            r"\b(?:casino|apuestas?|bono|tragaperras|jackpot|poker|ruleta|freebets|bingo|tiradas gratis|giros gratis|supercuota)\b",
+            re.I,
+        ),
+    ),
+    (
+        "empleo o ingresos extra",
+        re.compile(
+            r"\b(?:gana dinero|trabaja desde casa|teletrabajo|ingresos pasivos|rentabilidad|sueldo|inversi[oó]n|criptomonedas?|trading)\b",
+            re.I,
+        ),
+    ),
+    (
+        "encuesta o remuneración",
+        re.compile(
+            r"\b(?:encuesta|cuestionario|panel de opini[oó]n|valora anuncios|remunerad[oa]|canjear?)\b",
+            re.I,
+        ),
+    ),
+    (
+        "llamada comercial o suscripción",
+        re.compile(
+            r"\b(?:suscr[ií]bete|suscripci[oó]n|contrata|renueva|exclusiv[oa]|cup[oó]n|hor[oó]scopo|tarot|tonos?|tarifa plana|coste.*sms)\b",
+            re.I,
+        ),
+    ),
+    (
+        "citas y contactos",
+        re.compile(r"\b(?:solteras?|chatear|citas|encuentros|contactos|chicas?|conocer gente)\b", re.I),
+    ),
+    ("baja publicitaria", re.compile(r"\b(?:baja|cancelar suscripci[oó]n|no recibir|stop)\b", re.I)),
 )
 
 TRANSACTIONAL_PATTERN = re.compile(

@@ -42,3 +42,27 @@ def test_parcel_notification_is_transactional() -> None:
     )
 
     assert result.message_type == MessageType.TRANSACTIONAL
+
+
+def test_100_spanish_sms_spam_dataset_detection() -> None:
+    import json
+    from pathlib import Path
+    from app.services.extraction import local_extract
+
+    dataset_path = Path(__file__).resolve().parents[1] / "data" / "sms_spam_100_es.jsonl"
+    assert dataset_path.exists()
+
+    lines = dataset_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 100
+
+    detected_count = 0
+    for line in lines:
+        item = json.loads(line)
+        extraction = local_extract(item["message"])
+        assessment = classify_message_type(extraction)
+        if assessment.message_type in {MessageType.SPAM, MessageType.PHISHING}:
+            detected_count += 1
+
+    # Tasa de detección de spam/phishing superior al 80%
+    assert detected_count >= 80
+

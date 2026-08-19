@@ -115,3 +115,78 @@ async def test_ct_connector_fetch_filters_official_domains_and_emits_observation
         assert obs.confidence is not None and obs.confidence >= 0.70
         assert obs.provenance["claimed_entity"] == "CaixaBank"
         assert obs.provenance["ct_id"] == 123456
+
+
+def test_store_ct_observations_writes_snapshot_and_indicators() -> None:
+    from app.connectors import ConnectorObservation
+    from app.database import SessionLocal, create_tables
+    from app.models import FeedSnapshot, ThreatIndicator
+    from app.services.ct_monitor import store_ct_observations
+
+    create_tables()
+    obs = ConnectorObservation(
+        provider="crtsh_ct",
+        indicator_type="domain",
+        value="caixabank-alerta-sms.xyz",
+        status="active",
+        confidence=0.85,
+        first_seen=datetime(2026, 8, 18, 12, 0, 0, tzinfo=UTC),
+        last_seen=datetime(2026, 8, 18, 12, 0, 0, tzinfo=UTC),
+        version="1.0.0",
+        provenance={"claimed_entity": "CaixaBank"},
+    )
+    count = store_ct_observations([obs])
+    assert count == 1
+
+    with SessionLocal() as db:
+        from sqlalchemy import select
+
+        snapshot = db.scalar(
+            select(FeedSnapshot)
+            .where(FeedSnapshot.provider == "crtsh_ct")
+            .order_by(FeedSnapshot.fetched_at.desc())
+        )
+        assert snapshot is not None
+        assert snapshot.succeeded is True
+        assert snapshot.entry_count == 1
+
+        indicator = db.scalar(
+            select(ThreatIndicator).where(
+                ThreatIndicator.provider == "crtsh_ct",
+                ThreatIndicator.value_public == "caixabank-alerta-sms.xyz",
+            )
+        )
+        assert indicator is not None
+        assert indicator.status == "active"
+
+
+@pytest.mark.asyncio
+async def test_sync_ct_monitor_integration() -> None:
+    from app.config import Settings
+    from app.database import create_tables
+    from app.services.ct_monitor import sync_ct_monitor
+
+    create_tables()
+    settings = Settings(
+        enable_ct_monitor=True,
+        ct_monitor_target_entities="CaixaBank",
+    )
+    mock_payload = [
+        {
+            "id": 999999,
+            "entry_timestamp": "2026-08-18T15:00:00",
+            "not_before": "2026-08-18T14:00:00",
+            "not_after": "2026-11-18T14:00:00",
+            "common_name": "caixabank-portal-verificacion.top",
+            "name_value": "caixabank-portal-verificacion.top",
+            "issuer_name": "C=US, O=Let's Encrypt, CN=R3",
+        }
+    ]
+    with patch(
+        "app.services.ct_monitor.CertificateTransparencyConnector.fetch_entity_certificates",
+        new_callable=AsyncMock,
+    ) as mock_fetch:
+        mock_fetch.return_value = mock_payload
+        count = await sync_ct_monitor(settings)
+        assert count == 1
+
