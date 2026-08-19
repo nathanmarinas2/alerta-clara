@@ -249,7 +249,10 @@
     "aliases": ["correos"],
     "official_domains": [
       "correos.es",
-      "correos.com"
+      "correos.com",
+      "correosprepago.es",
+      "correosexpress.com",
+      "correosexpress.es"
     ],
     "official_numbers": [
       {
@@ -337,7 +340,7 @@
   {
     "name": "DHL",
     "category": "delivery",
-    "aliases": ["dhl"],
+    "aliases": ["dhl", "dhl express"],
     "official_domains": [
       "dhl.com",
       "dhl.es"
@@ -347,7 +350,7 @@
   {
     "name": "Correos Express",
     "category": "delivery",
-    "aliases": ["correos express"],
+    "aliases": ["correos express", "correosexpress"],
     "official_domains": [
       "correosexpress.com",
       "correosexpress.es"
@@ -582,6 +585,51 @@
     "aliases": ["ledger", "ledger security"],
     "official_domains": [
       "ledger.com"
+    ],
+    "official_numbers": []
+  },
+  {
+    "name": "Renfe",
+    "category": "transport",
+    "aliases": ["renfe", "renfe viajero", "renfe viajeros"],
+    "official_domains": [
+      "renfe.com",
+      "renfe.es"
+    ],
+    "official_numbers": [
+      {
+        "number": "912320320",
+        "source": "https://www.renfe.com/es/es/ayuda/contacto",
+        "verified_at": "2026-08-19",
+        "purpose": "Información y atención al cliente Renfe"
+      }
+    ]
+  },
+  {
+    "name": "MAPFRE",
+    "category": "insurance",
+    "aliases": ["mapfre"],
+    "official_domains": [
+      "mapfre.es",
+      "mapfre.com"
+    ],
+    "official_numbers": [
+      {
+        "number": "918365365",
+        "source": "https://www.mapfre.es/contacto/",
+        "verified_at": "2026-08-19",
+        "purpose": "Atención al cliente MAPFRE"
+      }
+    ]
+  },
+  {
+    "name": "Zara",
+    "category": "retail",
+    "aliases": ["zara"],
+    "official_domains": [
+      "zara.com",
+      "zara.es",
+      "inditex.com"
     ],
     "official_numbers": []
   }

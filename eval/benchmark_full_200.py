@@ -138,8 +138,47 @@ async def run_full_benchmark() -> dict:
         c_fp = counts.get(VerdictLevel.SCAM.value, 0)
         print(f"  {cat:<25} | {c_tn:19d} | {c_fp:11d} | {'0.0% (Correcto)' if c_fp == 0 else f'ERROR: {c_fp}'}")
 
+    # 3. Barrido de umbral
+    scam_scores_and_hard: list[tuple[int, bool]] = []
+    for line in scam_lines:
+        item = json.loads(line)
+        sender = item.get("sender")
+        text = item["message"]
+        extraction = local_extract(text, sender=sender)
+        signals = await collector.collect(extraction)
+        hard = any(s.hard_rule for s in signals if s.status.value == "hit")
+        decision = decide(extraction, signals, ruleset_version=settings.ruleset_version)
+        scam_scores_and_hard.append((decision.score, hard))
+
+    legit_scores_and_hard: list[tuple[int, bool]] = []
+    for line in legit_lines:
+        item = json.loads(line)
+        sender = item.get("sender")
+        text = item["message"]
+        extraction = local_extract(text, sender=sender)
+        signals = await collector.collect(extraction)
+        hard = any(s.hard_rule for s in signals if s.status.value == "hit")
+        decision = decide(extraction, signals, ruleset_version=settings.ruleset_version)
+        legit_scores_and_hard.append((decision.score, hard))
+
+    print("\n5. BARRIDO DE UMBRAL (Sensibilidad vs Falsos Positivos):")
+    print("  Umbral | Recall Estafas | Falsos Positivos | Precision | F1-Score")
+    print("  -------+----------------+------------------+-----------+---------")
+    for thresh in [40, 45, 50, 55, 60, 65, 70, 75, 80]:
+        t_tp = sum(1 for sc, h in scam_scores_and_hard if h or sc >= thresh)
+        t_fn = scam_total - t_tp
+        t_fp = sum(1 for sc, h in legit_scores_and_hard if h or sc >= thresh)
+        t_tn = legit_total - t_fp
+
+        t_rec = (t_tp / scam_total) * 100 if scam_total else 0.0
+        t_fpr = (t_fp / legit_total) * 100 if legit_total else 0.0
+        t_prec = (t_tp / (t_tp + t_fp)) * 100 if (t_tp + t_fp) else 0.0
+        t_f1 = (2 * t_prec * t_rec) / (t_prec + t_rec) if (t_prec + t_rec) else 0.0
+        marker = " <-- actual" if thresh == 70 else ""
+        print(f"    {thresh:2d}   |     {t_rec:5.1f}%     |      {t_fpr:4.1f}%       |  {t_prec:5.1f}%   |  {t_f1:5.1f}{marker}")
+
     if fp_details:
-        print("\n[ALERTA] DETALLE DE FALSOS POSITIVOS EN MENSAJES LEGITIMOS:")
+        print("\n[ALERTA] DETALLE DE FALSOS POSITIVOS EN MENSAJES LEGITIMOS (Umbral 70):")
         for fp_item in fp_details:
             print(f"  - ID: {fp_item['id']} | Remitente: {fp_item['sender']} | Score: {fp_item['score']}")
             print(f"    Texto: {fp_item['text']}")

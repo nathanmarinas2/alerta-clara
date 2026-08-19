@@ -94,8 +94,9 @@ def find_claimed_entity(text: str) -> KnownEntity | None:
         char for char in unicodedata.normalize("NFD", normalized_words)
         if unicodedata.category(char) != "Mn"
     )
+    best_match: tuple[int, KnownEntity] | None = None
     for entity in load_entities():
-        for alias in sorted(entity.aliases, key=len, reverse=True):
+        for alias in entity.aliases:
             normalized_alias = (
                 unicodedata.normalize("NFKC", alias).casefold().translate(CONFUSABLES)
             )
@@ -104,8 +105,10 @@ def find_claimed_entity(text: str) -> KnownEntity | None:
                 if unicodedata.category(char) != "Mn"
             )
             if re.search(rf"(?<!\w){re.escape(normalized_alias)}(?!\w)", normalized_words):
-                return entity
-    return None
+                alias_len = len(normalized_alias)
+                if best_match is None or alias_len > best_match[0]:
+                    best_match = (alias_len, entity)
+    return best_match[1] if best_match else None
 
 
 def get_entity(name: str | None) -> KnownEntity | None:

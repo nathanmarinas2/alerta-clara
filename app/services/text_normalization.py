@@ -49,6 +49,32 @@ def normalize_for_detection(text: str) -> str:
     return re.sub(r"\s+", " ", value).strip().casefold()
 
 
+SENSITIVE_LEET_TERMS = (
+    "anydesk",
+    "teamviewer",
+    "rustdesk",
+    "supremo",
+    "banco",
+    "bbva",
+    "caixa",
+    "santander",
+    "sabadell",
+    "bankinter",
+    "codigo",
+    "clave",
+    "password",
+    "contrasena",
+    "login",
+    "acceso",
+    "verificar",
+    "seguridad",
+    "bloqueo",
+    "soporte",
+    "bizum",
+    "tarjeta",
+)
+
+
 def adversarial_obfuscations(text: str) -> list[str]:
     """Enumera transformaciones sospechosas aplicadas a la vista de detección."""
 
@@ -62,8 +88,12 @@ def adversarial_obfuscations(text: str) -> list[str]:
     if re.search(r"\b(any|team|rust)\s+(desk|viewer)\b", text, flags=re.I):
         findings.append("nombre de aplicación dividido")
     for token in ALNUM_TOKEN_RE.findall(text):
-        if any(char.isalpha() for char in token) and token.translate(LEET) != token:
-            findings.append("sustitución leet")
-            break
+        if any(char.isalpha() for char in token) and any(char.isdigit() for char in token):
+            translated = token.translate(LEET).casefold()
+            if translated != token.casefold() and any(
+                term in translated for term in SENSITIVE_LEET_TERMS
+            ):
+                findings.append("sustitución leet")
+                break
     return findings
 
