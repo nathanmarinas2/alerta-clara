@@ -359,7 +359,7 @@ class CertificateTransparencyConnector:
                 await asyncio.sleep(self.backoff_factor * attempt)
 
         fallback_pg = await self._fetch_via_postgres(search_token)
-        if fallback_pg is not None:
+        if fallback_pg:
             self._record_run(
                 entity_name,
                 source="crtsh_postgres",
@@ -369,6 +369,10 @@ class CertificateTransparencyConnector:
                 last_status=last_status,
             )
             return fallback_pg
+
+        # Una consulta PostgreSQL correcta pero vacía no demuestra que no haya
+        # certificados: continúa con CertSpotter para no convertir un 0 parcial
+        # en el resultado final.
 
         fallback_spotter = await self._fetch_via_certspotter(entity, client)
         if fallback_spotter is not None:

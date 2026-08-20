@@ -117,6 +117,31 @@ async def test_ct_connector_fetch_filters_official_domains_and_emits_observation
         assert obs.provenance["ct_id"] == 123456
 
 
+@pytest.mark.asyncio
+async def test_ct_connector_uses_certspotter_when_postgres_is_empty() -> None:
+    connector = CertificateTransparencyConnector(
+        target_entities=["CaixaBank"], max_retries=0
+    )
+    certificate = {
+        "id": 123,
+        "name_value": "caixabank-alerta.top",
+        "issuer_name": "Let's Encrypt",
+    }
+    with (
+        patch.object(connector, "_fetch_via_postgres", new_callable=AsyncMock) as postgres,
+        patch.object(
+            connector, "_fetch_via_certspotter", new_callable=AsyncMock
+        ) as certspotter,
+    ):
+        postgres.return_value = []
+        certspotter.return_value = [certificate]
+        result = await connector.fetch_entity_certificates("CaixaBank", AsyncMock())
+
+    assert result == [certificate]
+    assert certspotter.await_count == 1
+    assert connector.run_records[0]["source"] == "certspotter"
+
+
 def test_store_ct_observations_writes_snapshot_and_indicators() -> None:
     from app.connectors import ConnectorObservation
     from app.database import SessionLocal, create_tables
@@ -205,5 +230,4 @@ def test_ct_monitor_cli_main(capsys: pytest.CaptureFixture[str]) -> None:
         main()
         captured = capsys.readouterr()
         assert "observaciones nuevas: 3" in captured.out
-
 
