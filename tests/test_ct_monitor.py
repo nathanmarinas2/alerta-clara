@@ -118,28 +118,49 @@ async def test_ct_connector_fetch_filters_official_domains_and_emits_observation
 
 
 @pytest.mark.asyncio
-async def test_ct_connector_uses_certspotter_when_postgres_is_empty() -> None:
-    connector = CertificateTransparencyConnector(
-        target_entities=["CaixaBank"], max_retries=0
-    )
-    certificate = {
-        "id": 123,
-        "name_value": "caixabank-alerta.top",
-        "issuer_name": "Let's Encrypt",
-    }
-    with (
-        patch.object(connector, "_fetch_via_postgres", new_callable=AsyncMock) as postgres,
-        patch.object(
-            connector, "_fetch_via_certspotter", new_callable=AsyncMock
-        ) as certspotter,
-    ):
-        postgres.return_value = []
-        certspotter.return_value = [certificate]
-        result = await connector.fetch_entity_certificates("CaixaBank", AsyncMock())
+async def test_dominios_sin_relacion_con_la_marca_no_se_sellan() -> None:
+    """Una fuente ruidosa no puede meter dominios ajenos en el registro probatorio.
 
-    assert result == [certificate]
-    assert certspotter.await_count == 1
-    assert connector.run_records[0]["source"] == "certspotter"
+    Regresión: al consultar CertSpotter por los dominios oficiales de la entidad,
+    el monitor llegó a atribuir a CaixaBank un centro comercial de Sevilla y varias
+    empresas extranjeras. Cualquier candidato debe mencionar la marca o parecerse
+    a ella, y superar el umbral de confianza, antes de quedar sellado.
+    """
+    connector = CertificateTransparencyConnector(
+        target_entities=["CaixaBank"], max_retries=1
+    )
+    certificados = [
+        {
+            "id": 1,
+            "name_value": "cctorresevilla.com\nagricover.ro\nalfasigma.it",
+            "issuer_name": "Let's Encrypt",
+        },
+        {
+            "id": 2,
+            "name_value": "caixabank-seguridad.top",
+            "issuer_name": "Let's Encrypt",
+        },
+    ]
+    with patch.object(
+        connector, "fetch_entity_certificates", new_callable=AsyncMock
+    ) as mock_fetch:
+        mock_fetch.return_value = certificados
+        observaciones = await connector.fetch()
+
+    valores = {obs.value for obs in observaciones}
+    assert valores == {"caixabank-seguridad.top"}
+
+
+def test_no_queda_ninguna_via_certspotter() -> None:
+    """CertSpotter no puede buscar por marca en todo el corpus de CT.
+
+    Su API pública solo consulta certificados DE un dominio dado, así que preguntar
+    por los dominios oficiales devuelve las propiedades legítimas de la entidad.
+    Reintroducirla marcaría rondas como correctas sin haber buscado suplantaciones.
+    """
+    from app.services import ct_monitor
+
+    assert not hasattr(ct_monitor.CertificateTransparencyConnector, "_fetch_via_certspotter")
 
 
 def test_store_ct_observations_writes_snapshot_and_indicators() -> None:
@@ -231,3 +252,27 @@ def test_ct_monitor_cli_main(capsys: pytest.CaptureFixture[str]) -> None:
         captured = capsys.readouterr()
         assert "observaciones nuevas: 3" in captured.out
 
+
+
+def test_propiedades_corporativas_con_certificado_ov_no_se_sellan() -> None:
+    """Las filiales legítimas de la marca no son candidatas a campaña.
+
+    Regresión: una ronda real selló 45 dominios corporativos de CaixaBank
+    (caixabank.pl, caixabankpc.com, caixabankwealthmanagement.lu...), todos con
+    certificado de Sectigo. Un registro probatorio lleno de propiedades legítimas
+    no sirve para sostener ninguna detección temprana.
+    """
+    from app.entities import get_entity
+    from app.services.ct_monitor import is_campaign_plausible
+
+    entidad = get_entity("CaixaBank")
+    assert entidad is not None
+
+    sectigo = "C=GB, O=Sectigo Limited, CN=Sectigo RSA Organization Validation"
+    lets_encrypt = "C=US, O=Let's Encrypt, CN=R3"
+
+    for dominio in ("caixabank.pl", "caixabankpc.com", "caixabankwealthmanagement.lu"):
+        assert not is_campaign_plausible(dominio, entidad, sectigo)
+
+    for dominio in ("caixabank-seguridad.top", "caixabank-acceso.xyz"):
+        assert is_campaign_plausible(dominio, entidad, lets_encrypt)

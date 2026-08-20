@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     enable_ct_monitor: bool = False
     ct_monitor_interval_seconds: int = 3600
     ct_monitor_target_entities: str | None = None
+    # Confianza mínima para sellar una observación en el registro probatorio.
+    # Un dominio con puntuación baja no es evidencia de nada y contamina el log.
+    ct_min_confidence: float = 0.5
     enable_cnmc_alias_registry: bool = False
     cnmc_registry_enforcement_date: str = "2026-09-15"
     enable_qr_decode: bool = True

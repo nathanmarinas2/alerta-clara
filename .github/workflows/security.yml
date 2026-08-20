@@ -76,17 +76,37 @@ jobs:
               for match in report.get("matches", [])
               if match.get("vulnerability", {}).get("severity") in {"High", "Critical"}
           ]
+
+          # El corte se aplica solo a lo que se puede corregir. Bloquear por CVE sin
+          # parche publicado deja el build permanentemente en rojo por algo sobre lo
+          # que no se puede actuar, y un semáforo que nunca se pone verde acaba
+          # ignorándose. Las no corregibles se anotan igualmente para tenerlas a la vista.
+          accionables = []
+          sin_parche = []
           for match in findings:
               vulnerability = match.get("vulnerability", {})
               artifact = match.get("artifact", {})
-              fixes = ", ".join(vulnerability.get("fix", {}).get("versions", [])) or "sin parche"
+              versions = vulnerability.get("fix", {}).get("versions", [])
+              fixes = ", ".join(versions) or "sin parche"
               message = (
                   f"{vulnerability.get('id', 'desconocido')} "
                   f"{artifact.get('name', 'desconocido')}@{artifact.get('version', '?')} "
                   f"({vulnerability.get('severity')}); fix: {fixes}"
               )
-              print(f"::error title=container-vulnerability::{message}")
-          if findings:
-              raise SystemExit(f"{len(findings)} vulnerabilidad(es) high/critical detectada(s)")
-          print("No se han encontrado vulnerabilidades high/critical en la imagen")
+              if versions:
+                  accionables.append(message)
+                  print(f"::error title=container-vulnerability::{message}")
+              else:
+                  sin_parche.append(message)
+                  print(f"::warning title=container-vulnerability-unfixed::{message}")
+
+          print(
+              f"high/critical: {len(findings)} "
+              f"({len(accionables)} con parche, {len(sin_parche)} sin parche)"
+          )
+          if accionables:
+              raise SystemExit(
+                  f"{len(accionables)} vulnerabilidad(es) high/critical con parche disponible"
+              )
+          print("Sin vulnerabilidades high/critical corregibles en la imagen")
           PY

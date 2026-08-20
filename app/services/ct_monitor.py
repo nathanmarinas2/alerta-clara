@@ -88,6 +88,45 @@ def parse_ct_timestamp(timestamp_str: str | None) -> datetime | None:
         return None
 
 
+def is_campaign_plausible(domain: str, entity: KnownEntity, issuer_name: str) -> bool:
+    """Exige un certificado DV para considerar el dominio candidato a campaña.
+
+    Obtener un certificado con validación de organización exige una sociedad
+    registrada cuyo nombre case con el dominio, con coste y días de trámite. Es lo
+    que tienen las filiales reales de la marca (`caixabank.pl`, `caixabankpc.com`,
+    emitidos por Sectigo) y lo que una campaña de smishing no monta: usa DV gratuito
+    e instantáneo.
+
+    El coste de la regla es no ver una campaña que sí pagara un OV, algo excepcional.
+    A cambio evita sellar decenas de propiedades legítimas por ronda, que es lo que
+    vacía de valor el registro. Al ser una fuente de pistas para revisión humana y no
+    un veredicto, ese equilibrio es el correcto.
+    """
+    issuer_lower = issuer_name.casefold()
+    return any(issuer in issuer_lower for issuer in AUTOMATED_DV_ISSUERS)
+
+
+def references_entity(domain: str, entity: KnownEntity) -> bool:
+    """Indica si el dominio menciona la marca o se le parece lo bastante.
+
+    Requisito mínimo para considerar que un certificado podría estar suplantando a
+    la entidad. Un dominio sin ninguna relación con la marca no es un candidato:
+    es ruido de la fuente, y sellarlo como observación arruina el registro.
+    """
+    tokens = {
+        normalize_token(alias)
+        for alias in (entity.name, *entity.aliases)
+        if len(normalize_token(alias)) >= 4
+    }
+    if any(token in normalize_token(domain) for token in tokens):
+        return True
+    similarity = max(
+        (domain_similarity(domain, official) for official in entity.official_domains),
+        default=0.0,
+    )
+    return similarity >= 0.82
+
+
 def calculate_ct_risk_score(
     domain: str,
     entity: KnownEntity,
@@ -147,10 +186,13 @@ class CertificateTransparencyConnector:
     def __init__(
         self,
         target_entities: list[str] | None = None,
-        timeout: float = 10.0,
-        max_retries: int = 2,
-        backoff_factor: float = 2.0,
+        timeout: float = 30.0,
+        max_retries: int = 3,
+        # crt.sh necesita esperas largas cuando está saturado: con 2 segundos se
+        # agotan los reintentos antes de que llegue a responder.
+        backoff_factor: float = 15.0,
         enable_postgres_fallback: bool = True,
+        min_confidence: float = 0.5,
     ) -> None:
         self.target_entities = target_entities or [
             "CaixaBank",
@@ -168,6 +210,7 @@ class CertificateTransparencyConnector:
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
         self.enable_postgres_fallback = enable_postgres_fallback
+        self.min_confidence = min_confidence
         # Registro de resultado por consulta: distingue "no habia nada" de "no pude mirar".
         self.run_records: list[dict[str, Any]] = []
 
@@ -247,57 +290,12 @@ class CertificateTransparencyConnector:
 
         return await asyncio.to_thread(_query)
 
-    async def _fetch_via_certspotter(
-        self,
-        entity: KnownEntity,
-        client: httpx.AsyncClient,
-    ) -> list[dict[str, Any]] | None:
-        """Respaldo mediante la API pública de CertSpotter (SSLMate).
-
-        Se consulta para los dominios oficiales de la entidad y subdominios asociados.
-        Devuelve None si hubo error en todas las peticiones para distinguirlo de 0 hallazgos.
-        """
-        if not entity.official_domains:
-            return None
-
-        results: list[dict[str, Any]] = []
-        any_success = False
-
-        headers = {"User-Agent": "AlertaClara/1.0 (CT-Monitor; Security Research)"}
-        for domain in entity.official_domains[:2]:
-            url = f"https://api.certspotter.com/v1/issuances?domain={domain}&include_subdomains=true&expand=dns_names&expand=issuer"
-            try:
-                response = await client.get(url, headers=headers, timeout=self.timeout)
-                if response.status_code == 200:
-                    any_success = True
-                    data = response.json()
-                    if isinstance(data, list):
-                        for item in data:
-                            dns_names = item.get("dns_names") or []
-                            issuer = item.get("issuer") or {}
-                            issuer_name = issuer.get("name") or issuer.get("friendly_name") or ""
-                            results.append(
-                                {
-                                    "id": item.get("id"),
-                                    "name_value": "\n".join(dns_names),
-                                    "issuer_name": issuer_name,
-                                    "entry_timestamp": item.get("not_before"),
-                                    "not_before": item.get("not_before"),
-                                    "not_after": item.get("not_after"),
-                                    "common_name": dns_names[0] if dns_names else None,
-                                }
-                            )
-            except Exception as exc:
-                logger.debug("Error en CertSpotter para %s: %s", domain, exc)
-
-        return results if any_success else None
-
     async def fetch_entity_certificates(
         self,
         entity_name: str,
         client: httpx.AsyncClient,
     ) -> list[dict[str, Any]]:
-        """Consulta crt.sh con reintentos, backoff y respaldos por Postgres y CertSpotter."""
+        """Consulta crt.sh con reintentos, backoff y respaldo por Postgres."""
         entity = get_entity(entity_name)
         if not entity:
             self._record_run(
@@ -370,26 +368,15 @@ class CertificateTransparencyConnector:
             )
             return fallback_pg
 
-        # Una consulta PostgreSQL correcta pero vacía no demuestra que no haya
-        # certificados: continúa con CertSpotter para no convertir un 0 parcial
-        # en el resultado final.
-
-        fallback_spotter = await self._fetch_via_certspotter(entity, client)
-        if fallback_spotter is not None:
-            self._record_run(
-                entity_name,
-                source="certspotter",
-                ok=True,
-                certificates=len(fallback_spotter),
-                attempts=attempts,
-                last_status=last_status,
-            )
-            return fallback_spotter
-
-        # Vías agotadas: se deja constancia explícita
+        # No se añade una tercera vía por CertSpotter: su API pública solo consulta
+        # certificados DE un dominio dado, no permite buscar por marca en todo el
+        # corpus de CT. Preguntar por los dominios oficiales devuelve las propiedades
+        # legítimas de la entidad (y ruido no relacionado), justo lo contrario de lo
+        # que busca este monitor. Una fuente que no puede encontrar suplantaciones no
+        # es un respaldo: es una forma de marcar la ronda como correcta sin haber mirado.
         self._record_run(
             entity_name,
-            source="crtsh_http+postgres+certspotter",
+            source="crtsh_http+postgres",
             ok=False,
             certificates=0,
             attempts=attempts,
@@ -442,7 +429,18 @@ class CertificateTransparencyConnector:
                             continue
 
                         seen_domains.add(dom)
+
+                        # Filtro estructural: si el dominio no menciona la marca ni se
+                        # le parece, no puede estar suplantándola.
+                        if not references_entity(dom, entity):
+                            continue
+
+                        if not is_campaign_plausible(dom, entity, issuer_name):
+                            continue
+
                         confidence = calculate_ct_risk_score(dom, entity, issuer_name, entry_ts)
+                        if confidence < self.min_confidence:
+                            continue
 
                         obs = ConnectorObservation(
                             provider=self.name,
@@ -703,7 +701,10 @@ async def sync_ct_monitor(settings: Settings) -> int:
         entities = [
             e.strip() for e in settings.ct_monitor_target_entities.split(",") if e.strip()
         ]
-    connector = CertificateTransparencyConnector(target_entities=entities)
+    connector = CertificateTransparencyConnector(
+        target_entities=entities,
+        min_confidence=settings.ct_min_confidence,
+    )
     observations = await connector.fetch()
 
     # El sellado de la ronda es independiente de que haya hallazgos: es la prueba
