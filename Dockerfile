@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS runtime
+FROM python:3.12-slim-trixie AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -11,7 +11,12 @@ RUN groupadd --system alerta && useradd --system --gid alerta --home-dir /srv/ap
 COPY requirements-runtime.lock pyproject.toml README.md ./
 COPY models ./models
 COPY app ./app
-RUN python -m pip install --no-deps -r requirements-runtime.lock && python -m pip install --no-deps .
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip install --no-deps -r requirements-runtime.lock \
+    && python -m pip install --no-deps . \
+    && python -m pip uninstall --yes pip setuptools
 
 USER alerta
 EXPOSE 8000
