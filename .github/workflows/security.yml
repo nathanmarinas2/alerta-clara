@@ -56,8 +56,37 @@ jobs:
         run: docker build --tag alerta-clara:ci .
       - name: Filesystem vulnerability scan
         uses: anchore/scan-action@v7
+        id: grype
         with:
           image: alerta-clara:ci
-          fail-build: true
+          fail-build: false
           severity-cutoff: high
-          output-format: table
+          output-format: json
+          output-file: grype.json
+      - name: Enforce container vulnerability cutoff
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("grype.json").read_text(encoding="utf-8"))
+          findings = [
+              match
+              for match in report.get("matches", [])
+              if match.get("vulnerability", {}).get("severity") in {"High", "Critical"}
+          ]
+          for match in findings:
+              vulnerability = match.get("vulnerability", {})
+              artifact = match.get("artifact", {})
+              fixes = ", ".join(vulnerability.get("fix", {}).get("versions", [])) or "sin parche"
+              message = (
+                  f"{vulnerability.get('id', 'desconocido')} "
+                  f"{artifact.get('name', 'desconocido')}@{artifact.get('version', '?')} "
+                  f"({vulnerability.get('severity')}); fix: {fixes}"
+              )
+              print(f"::error title=container-vulnerability::{message}")
+          if findings:
+              raise SystemExit(f"{len(findings)} vulnerabilidad(es) high/critical detectada(s)")
+          print("No se han encontrado vulnerabilidades high/critical en la imagen")
+          PY
