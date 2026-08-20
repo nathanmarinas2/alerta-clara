@@ -91,6 +91,20 @@ a mensajes cortos. El resultado se guarda en `models/phishing_tfidf.joblib` y la
 máximo cuando supera el umbral de confianza); las reglas duras y la abstención conservadora siguen
 teniendo prioridad.
 
+## Reconocimiento de texto en capturas (OCR)
+
+El OCR es un extra opcional y **no forma parte de la imagen de la API**: la cadena
+`rapidocr -> opencv` pesa cientos de megas, consume CPU en el proceso que atiende
+peticiones y arrastra vulnerabilidades de FFmpeg que no se pueden resolver desde el
+Dockerfile. Para habilitarlo en un entorno de desarrollo:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[ocr]"
+```
+
+Sin el motor instalado, la lectura de QR y el análisis de texto siguen funcionando
+con normalidad y la subida de capturas devuelve un mensaje que lo explica.
+
 ## Pruebas
 
 ```powershell

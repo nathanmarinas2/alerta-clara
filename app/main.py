@@ -45,7 +45,7 @@ from app.schemas import (
 )
 from app.services.browser import browser_health
 from app.services.ct_monitor import ct_monitor_loop
-from app.services.ocr import extract_text_from_image
+from app.services.ocr import extract_text_from_image, is_ocr_available
 from app.services.pipeline import AnalysisPipeline
 from app.services.qr import decode_qr_payloads
 from app.services.ratelimit import enforce_rate_limit
@@ -321,6 +321,16 @@ async def analyze_form(
         and not (settings.openai_api_key and settings.allow_external_image_analysis)
         and not qr_payloads
     ):
+        # Sin motor de OCR el consejo de "prueba con una imagen más nítida" es inútil
+        # y engañoso: por muy nítida que sea, aquí nadie va a leerla.
+        if settings.enable_local_ocr and not is_ocr_available():
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Esta instalación no puede leer el texto de las capturas. "
+                    "Copia el mensaje y pégalo en el recuadro."
+                ),
+            )
         raise HTTPException(
             status_code=422,
             detail=(

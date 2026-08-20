@@ -19,7 +19,6 @@ dependencies = [
   "pydantic-settings>=2.10,<3",
   "python-multipart>=0.0.20,<1",
   "redis>=6.4,<7",
-  "rapidocr-onnxruntime>=1.4,<2",
   "scikit-learn>=1.5,<2",
   "sqlalchemy>=2.0,<3",
   "tldextract>=5.3,<6",
@@ -28,6 +27,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Reconocimiento de texto en capturas. Fuera de la imagen de la API por peso
+# (onnxruntime + opencv) y porque arrastra CVE de FFmpeg que no se pueden
+# resolver: en Linux cv2 enlaza libavcodec por DT_NEEDED. Se despliega aparte.
+ocr = [
+  "rapidocr-onnxruntime>=1.4,<2",
+]
 dev = [
   "pytest>=9.0.3,<10",
   "pytest-asyncio>=1.1,<2",

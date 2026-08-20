@@ -119,6 +119,36 @@ crea `review_items`; nunca cambia el veredicto. La cola administrativa usa token
 registra consultas y resoluciones en `audit_events`, y puede confirmar una campaña para análisis
 futuros.
 
+## Registro de decisiones y renuncias
+
+Cada una de estas decisiones sacrifica algo concreto. Se documenta la renuncia, no
+solo la elección, para que un cambio futuro sepa qué estaba comprando.
+
+| Decisión | Se gana | Se renuncia |
+| --- | --- | --- |
+| El OCR sale de la imagen de la API (extra `[ocr]`) | Imagen pequeña, sin CVE de FFmpeg y con CPython 3.13 | En un despliegue de un solo contenedor no hay lectura de capturas salvo que se levante la imagen de OCR |
+| El monitor de CT solo acepta emisores DV | Registro probatorio sin filiales legítimas de la marca | No se ve una campaña que pagara un certificado con validación de organización |
+| El Registro de Alias de la CNMC no puntúa | No se afirma nada sobre un registro oficial que aún no es consultable | Se pierde una señal fuerte hasta que abra el portal público |
+| «Hijo en apuros» sin regla dura y exigiendo petición económica | Un hijo real que avisa de móvil nuevo no sale marcado como estafa | La detección de esa categoría baja de forma notable |
+| El escáner de contenedor solo falla ante CVE con parche | El semáforo puede ponerse verde, y por tanto significa algo | Se convive con vulnerabilidades visibles y sin corregir |
+| El clasificador ML pesa 15 y nunca es regla dura | El veredicto sigue siendo reproducible y auditable | Mejorar el modelo apenas mueve el resultado |
+
+### Por qué el OCR no puede seguir en la imagen
+
+La cadena `rapidocr-onnxruntime -> opencv-python` arrastra cuatro vulnerabilidades
+high con parche publicado que no se pueden resolver desde el Dockerfile:
+
+- Tres de CPython, corregidas solo en 3.13 o superior. `rapidocr-onnxruntime`
+  declara `Requires-Python <3.13`, de modo que no se podía subir de versión.
+- Una de FFmpeg, que viaja dentro de las ruedas de OpenCV. En Linux `cv2.abi3.so`
+  enlaza `libavcodec`, `libavformat`, `libavutil` y `libswscale` por `DT_NEEDED`:
+  borrarlas rompe el propio `import cv2`. La variante `headless` elimina la
+  interfaz gráfica, no estos binarios, y no existe rueda publicada sin FFmpeg.
+
+Separarlo además corrige un problema anterior: el reconocimiento de texto es
+trabajo intensivo de CPU y no debería ejecutarse dentro del proceso que atiende
+peticiones.
+
 ## Qué falta antes de un piloto
 
 En orden:

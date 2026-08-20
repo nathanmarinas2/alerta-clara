@@ -42,3 +42,13 @@ def extract_text_from_image(image_bytes: bytes, *, min_confidence: float = 0.35)
         lines.append((y, x, text))
     lines.sort(key=lambda item: (round(item[0] / 12), item[1]))
     return "\n".join(text for _y, _x, text in lines)[:MAX_OCR_CHARS]
+
+
+def is_ocr_available() -> bool:
+    """Indica si el motor de OCR está instalado en este despliegue.
+
+    La imagen de la API no incluye la cadena de reconocimiento de texto; vive en el
+    extra `[ocr]` y se despliega aparte. Distinguir "no está instalado" de "no se
+    pudo leer la imagen" evita dar al usuario un consejo que no le sirve de nada.
+    """
+    return _engine() is not None
