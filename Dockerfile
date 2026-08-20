@@ -9,6 +9,8 @@ WORKDIR /srv/app
 RUN groupadd --system alerta && useradd --system --gid alerta --home-dir /srv/app alerta
 
 COPY requirements-runtime.lock pyproject.toml README.md ./
+COPY alembic.ini ./
+COPY migrations ./migrations
 COPY models ./models
 COPY app ./app
 RUN apt-get update \

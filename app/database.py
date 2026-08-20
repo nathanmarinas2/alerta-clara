@@ -21,6 +21,19 @@ engine = create_engine(settings.database_url, pool_pre_ping=True, connect_args=c
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
+def _migration_root() -> Path:
+    """Find Alembic files both from a source checkout and an installed wheel."""
+    candidates = (
+        Path(__file__).resolve().parents[1],
+        Path.cwd(),
+        Path("/srv/app"),
+    )
+    for root in candidates:
+        if (root / "alembic.ini").is_file() and (root / "migrations").is_dir():
+            return root
+    raise RuntimeError("No se encontró el directorio de migraciones de Alembic")
+
+
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
@@ -33,7 +46,7 @@ def create_tables() -> None:
     """Aplica el único camino de esquema: Alembic hasta la revisión más reciente."""
     from app import models  # noqa: F401 - registra las tablas para Alembic
 
-    project_root = Path(__file__).resolve().parents[1]
+    project_root = _migration_root()
     config = Config(str(project_root / "alembic.ini"))
     config.set_main_option("script_location", str(project_root / "migrations"))
     config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
