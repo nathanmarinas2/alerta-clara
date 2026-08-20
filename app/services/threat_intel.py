@@ -117,7 +117,7 @@ def _feed_values(content: bytes, policy: ProviderPolicy) -> set[str]:
                 continue
             parts = line.split()
             # These are hosts-file addresses, not sockets the application binds to.
-            if len(parts) >= 2 and parts[0] in {"127.0.0.1", "0.0.0.0"}:  # nosec B104
+            if len(parts) >= 2 and parts[0] in {"127.0.0.1", "0.0.0.0"}:  # noqa: S104  # nosec B104
                 candidates.append(parts[1])
             else:
                 candidates.extend(parts)
