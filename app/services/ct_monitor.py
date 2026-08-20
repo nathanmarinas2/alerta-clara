@@ -566,7 +566,9 @@ def append_ct_observations_to_audit_log(
 
     total_count = 0
     daily_files_meta: dict[str, Any] = {}
-    for jsonl_path in sorted(target_dir.glob("**/*.jsonl")):
+    # Los resultados de consultas viven en runs/ y no son dominios observados.
+    # Mezclarlos aquí hacía que un día con 0 hallazgos pareciera tener observaciones.
+    for jsonl_path in sorted(target_dir.glob("*.jsonl")):
         content = jsonl_path.read_bytes()
         file_sha256 = hashlib.sha256(content).hexdigest()
         count = len(

@@ -8,7 +8,7 @@ import pytest
 from app.connectors import ConnectorObservation
 from app.database import SessionLocal, create_tables
 from app.models import FeedSnapshot, ThreatIndicator
-from app.services.ct_monitor import append_ct_observations_to_audit_log
+from app.services.ct_monitor import append_ct_observations_to_audit_log, append_ct_run_log
 from app.services.ct_verification import (
     calculate_lead_time_metrics,
     cross_reference_threat_feeds,
@@ -79,6 +79,28 @@ def test_append_ct_observations_writes_daily_file_and_manifest(temp_audit_dir: P
     assert daily_file.name in manifest["daily_files"]
     assert manifest["daily_files"][daily_file.name]["entry_count"] == 2
     assert len(manifest["daily_files"][daily_file.name]["sha256"]) == 64
+
+
+def test_manifest_does_not_count_query_runs_as_domain_observations(
+    temp_audit_dir: Path,
+) -> None:
+    append_ct_run_log(
+        [
+            {
+                "entity": "BBVA",
+                "source": "crtsh_http",
+                "ok": False,
+                "certificates_seen": 0,
+            }
+        ],
+        audit_dir=temp_audit_dir,
+    )
+
+    append_ct_observations_to_audit_log([], audit_dir=temp_audit_dir)
+    manifest = json.loads((temp_audit_dir / "manifest.json").read_text(encoding="utf-8"))
+
+    assert manifest["total_observations"] == 0
+    assert manifest["daily_files"] == {}
 
 
 @pytest.mark.asyncio
