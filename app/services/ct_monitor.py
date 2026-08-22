@@ -14,6 +14,7 @@ import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
+from time import perf_counter
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -138,6 +139,28 @@ def measure_early_warning_lead_time_seconds(
     return (message_received_at - indicator_first_seen).total_seconds()
 
 
+def is_campaign_plausible(domain: str, entity: KnownEntity, issuer_name: str) -> bool:
+    """Reduce ruido exigiendo emisores DV automatizados para candidatos de campaña."""
+    issuer_lower = issuer_name.casefold()
+    return any(issuer in issuer_lower for issuer in AUTOMATED_DV_ISSUERS)
+
+
+def references_entity(domain: str, entity: KnownEntity) -> bool:
+    """Comprueba que el dominio menciona o se parece a la entidad consultada."""
+    tokens = {
+        normalize_token(alias)
+        for alias in (entity.name, *entity.aliases)
+        if len(normalize_token(alias)) >= 4
+    }
+    if any(token in normalize_token(domain) for token in tokens):
+        return True
+    similarity = max(
+        (domain_similarity(domain, official) for official in entity.official_domains),
+        default=0.0,
+    )
+    return similarity >= 0.82
+
+
 class CertificateTransparencyConnector:
     """Conector para recopilar y filtrar candidatos de suplantación en Certificate Transparency."""
 
@@ -147,10 +170,12 @@ class CertificateTransparencyConnector:
     def __init__(
         self,
         target_entities: list[str] | None = None,
-        timeout: float = 30.0,
-        max_retries: int = 3,
-        backoff_factor: float = 15.0,
+        timeout: float = 12.0,
+        max_retries: int = 2,
+        backoff_factor: float = 2.0,
         enable_postgres_fallback: bool = True,
+        max_concurrency: int = 4,
+        min_confidence: float = 0.5,
     ) -> None:
         self.target_entities = target_entities or [
             "CaixaBank",
@@ -168,8 +193,11 @@ class CertificateTransparencyConnector:
         self.max_retries = max_retries
         self.backoff_factor = backoff_factor
         self.enable_postgres_fallback = enable_postgres_fallback
+        self.max_concurrency = max(1, max_concurrency)
+        self.min_confidence = min_confidence
         # Registro de resultado por consulta: distingue "no habia nada" de "no pude mirar".
         self.run_records: list[dict[str, Any]] = []
+        self.last_run_duration_seconds = 0.0
 
     def _record_run(
         self,
@@ -229,9 +257,9 @@ class CertificateTransparencyConnector:
             try:
                 with psycopg.connect(
                     "postgresql://guest@crt.sh:5432/certwatch",
-                    connect_timeout=15,
+                    connect_timeout=3,
                 ) as conn, conn.cursor() as cur:
-                    cur.execute("SET statement_timeout = 25000")
+                    cur.execute("SET statement_timeout = 3000")
                     cur.execute(sql, (f"%{search_token}%",))
                     columns = [d[0] for d in cur.description]
                     rows = [dict(zip(columns, r, strict=True)) for r in cur.fetchall()]
@@ -282,6 +310,7 @@ class CertificateTransparencyConnector:
                     try:
                         data = response.json()
                         if isinstance(data, list):
+                            data = [item for item in data if isinstance(item, dict)]
                             self._record_run(
                                 entity_name,
                                 source="crtsh_http",
@@ -291,7 +320,7 @@ class CertificateTransparencyConnector:
                                 last_status=last_status,
                             )
                             return data
-                    except json.JSONDecodeError:
+                    except (ValueError, TypeError):
                         last_error = "respuesta_no_json"
                         logger.warning("crt.sh devolvió respuesta no-JSON para %s", entity_name)
                 elif response.status_code in (429, 502, 503, 504):
@@ -345,32 +374,63 @@ class CertificateTransparencyConnector:
 
     async def fetch(self) -> list[ConnectorObservation]:
         """Obtiene observaciones de dominios sospechosos para las entidades objetivo."""
+        started = perf_counter()
         observations: list[ConnectorObservation] = []
         seen_domains: set[str] = set()
         self.run_records = []
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(
+            limits=httpx.Limits(
+                max_connections=self.max_concurrency,
+                max_keepalive_connections=self.max_concurrency,
+            )
+        ) as client:
+            semaphore = asyncio.Semaphore(self.max_concurrency)
+
+            async def fetch_one(entity_name: str) -> tuple[str, list[dict[str, Any]]]:
+                async with semaphore:
+                    try:
+                        return entity_name, await self.fetch_entity_certificates(
+                            entity_name, client
+                        )
+                    except Exception as exc:  # una entidad no debe tumbar la ronda
+                        logger.exception("Error inesperado consultando %s", entity_name)
+                        self._record_run(
+                            entity_name,
+                            source="internal",
+                            ok=False,
+                            certificates=0,
+                            attempts=0,
+                            error=f"{type(exc).__name__}: {exc}",
+                        )
+                        return entity_name, []
+
+            results = await asyncio.gather(
+                *(fetch_one(entity_name) for entity_name in self.target_entities)
+            )
+            certs_by_entity = dict(results)
+
+            # La concurrencia no debe cambiar el orden probatorio de las entidades.
+            entity_order = {name: index for index, name in enumerate(self.target_entities)}
+            self.run_records.sort(
+                key=lambda record: entity_order.get(
+                    str(record.get("entity")), len(entity_order)
+                )
+            )
+
             for entity_name in self.target_entities:
                 entity = get_entity(entity_name)
                 if not entity:
-                    # Una errata en CT_MONITOR_TARGET_ENTITIES no puede desaparecer
-                    # en silencio: el registro debe reflejar que esa marca no se miró.
-                    self._record_run(
-                        entity_name,
-                        source="none",
-                        ok=False,
-                        certificates=0,
-                        attempts=0,
-                        error="entidad_desconocida",
-                    )
                     continue
 
-                certs = await self.fetch_entity_certificates(entity_name, client)
                 now = datetime.now(UTC)
-
-                for cert in certs:
-                    name_value = cert.get("name_value", "")
-                    issuer_name = cert.get("issuer_name", "")
+                for cert in certs_by_entity.get(entity_name, []):
+                    if not isinstance(cert, dict):
+                        continue
+                    name_value = cert.get("name_value") or ""
+                    if not isinstance(name_value, str):
+                        continue
+                    issuer_name = str(cert.get("issuer_name") or "")
                     entry_ts = parse_ct_timestamp(cert.get("entry_timestamp"))
 
                     for raw_name in name_value.split("\n"):
@@ -382,41 +442,50 @@ class CertificateTransparencyConnector:
                         if not dom or dom in seen_domains:
                             continue
 
-                        # Descartar propiedades oficiales legítimas
+                        # Descartar propiedades oficiales legítimas y ruido ajeno.
                         if is_official_domain(dom, entity):
                             continue
+                        if not references_entity(dom, entity):
+                            continue
+                        if not is_campaign_plausible(dom, entity, issuer_name):
+                            continue
 
-                        seen_domains.add(dom)
                         confidence = calculate_ct_risk_score(dom, entity, issuer_name, entry_ts)
+                        if confidence < self.min_confidence:
+                            continue
+                        seen_domains.add(dom)
 
-                        obs = ConnectorObservation(
-                            provider=self.name,
-                            indicator_type="domain",
-                            value=dom,
-                            status="active",
-                            confidence=confidence,
-                            first_seen=entry_ts,
-                            last_seen=entry_ts,
-                            retrieved_at=now,
-                            version=self.version,
-                            provenance={
-                                "claimed_entity": entity.name,
-                                "issuer_name": issuer_name,
-                                "common_name": cert.get("common_name"),
-                                "not_before": cert.get("not_before"),
-                                "not_after": cert.get("not_after"),
-                                "ct_id": cert.get("id"),
-                            },
-                            retryable=False,
+                        observations.append(
+                            ConnectorObservation(
+                                provider=self.name,
+                                indicator_type="domain",
+                                value=dom,
+                                status="active",
+                                confidence=confidence,
+                                first_seen=entry_ts,
+                                last_seen=entry_ts,
+                                retrieved_at=now,
+                                version=self.version,
+                                provenance={
+                                    "claimed_entity": entity.name,
+                                    "issuer_name": issuer_name,
+                                    "common_name": cert.get("common_name"),
+                                    "not_before": cert.get("not_before"),
+                                    "not_after": cert.get("not_after"),
+                                    "ct_id": cert.get("id"),
+                                },
+                                retryable=False,
+                            )
                         )
-                        observations.append(obs)
 
+        self.last_run_duration_seconds = round(perf_counter() - started, 3)
         return observations
 
 
 def append_ct_run_log(
     run_records: list[dict[str, Any]],
     audit_dir: Path | None = None,
+    duration_seconds: float | None = None,
 ) -> Path:
     """Sella el resultado de cada consulta del día, con o sin hallazgos.
 
@@ -439,6 +508,8 @@ def append_ct_run_log(
         "sources_used": sorted({str(r.get("source")) for r in run_records}),
         "results": run_records,
     }
+    if duration_seconds is not None:
+        entry["duration_seconds"] = round(max(0.0, duration_seconds), 3)
     with daily_file.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
     return daily_file
@@ -515,7 +586,8 @@ def append_ct_observations_to_audit_log(
 
     total_count = 0
     daily_files_meta: dict[str, Any] = {}
-    for jsonl_path in sorted(target_dir.glob("**/*.jsonl")):
+    # Los resultados de consultas viven en runs/ y no son dominios observados.
+    for jsonl_path in sorted(target_dir.glob("*.jsonl")):
         content = jsonl_path.read_bytes()
         file_sha256 = hashlib.sha256(content).hexdigest()
         count = len(
@@ -646,14 +718,26 @@ async def sync_ct_monitor(settings: Settings) -> int:
         entities = [
             e.strip() for e in settings.ct_monitor_target_entities.split(",") if e.strip()
         ]
-    connector = CertificateTransparencyConnector(target_entities=entities)
+    connector = CertificateTransparencyConnector(
+        target_entities=entities,
+        timeout=settings.ct_monitor_timeout_seconds,
+        max_retries=settings.ct_monitor_max_retries,
+        backoff_factor=settings.ct_monitor_backoff_seconds,
+        max_concurrency=settings.ct_monitor_max_concurrency,
+        min_confidence=getattr(settings, "ct_min_confidence", 0.5),
+    )
     observations = await connector.fetch()
 
     # El sellado de la ronda es independiente de que haya hallazgos: es la prueba
     # de que ese día se miró, y de si crt.sh respondió o no.
     if connector.run_records:
         try:
-            await asyncio.to_thread(append_ct_run_log, connector.run_records)
+            await asyncio.to_thread(
+                append_ct_run_log,
+                connector.run_records,
+                None,
+                connector.last_run_duration_seconds,
+            )
         except Exception as exc:  # nunca debe tumbar la recolección
             logger.warning("No se pudo sellar el registro de ejecución CT: %s", exc)
 

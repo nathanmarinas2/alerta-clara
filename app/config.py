@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     enable_ct_monitor: bool = False
     ct_monitor_interval_seconds: int = 3600
     ct_monitor_target_entities: str | None = None
+    ct_monitor_timeout_seconds: float = 12.0
+    ct_monitor_max_retries: int = 2
+    ct_monitor_backoff_seconds: float = 2.0
+    ct_monitor_max_concurrency: int = 4
+    ct_min_confidence: float = 0.5
     enable_cnmc_alias_registry: bool = False
     cnmc_registry_enforcement_date: str = "2026-09-15"
     enable_qr_decode: bool = True

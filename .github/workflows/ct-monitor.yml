@@ -28,7 +28,9 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # El monitor tiene timeouts por entidad y concurrencia limitados; este tope
+    # evita que una incidencia externa deje un runner ocupado indefinidamente.
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -51,14 +53,12 @@ jobs:
           # no la persistencia en base de datos.
           DATABASE_URL: "sqlite:///./ct_runner.db"
           SERVER_PEPPER: "ci-ephemeral-not-a-secret"
+          CT_MONITOR_TIMEOUT_SECONDS: "12"
+          CT_MONITOR_MAX_RETRIES: "2"
+          CT_MONITOR_BACKOFF_SECONDS: "2"
+          CT_MONITOR_MAX_CONCURRENCY: "4"
         run: |
-          python -c "
-          import asyncio
-          from app.config import get_settings
-          from app.services.ct_monitor import sync_ct_monitor
-          count = asyncio.run(sync_ct_monitor(get_settings()))
-          print(f'observaciones nuevas: {count}')
-          "
+          python -m app.ct_monitor sync
 
       - name: Sellar el registro en git
         run: |

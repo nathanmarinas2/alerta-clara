@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
@@ -75,6 +76,71 @@ def test_ct_connector_implements_connector_protocol() -> None:
     assert isinstance(connector, Connector)
     assert connector.name == "crtsh_ct"
     assert connector.version == "1.0.0"
+
+
+@pytest.mark.asyncio
+async def test_ct_fetch_limita_concurrencia_y_no_aborta_por_una_entidad() -> None:
+    connector = CertificateTransparencyConnector(
+        target_entities=["CaixaBank", "BBVA", "Correos", "DGT"],
+        max_concurrency=2,
+    )
+    active = 0
+    max_active = 0
+
+    async def fake_fetch(entity_name: str, _client: object) -> list[dict[str, object]]:
+        nonlocal active, max_active
+        active += 1
+        max_active = max(max_active, active)
+        await asyncio.sleep(0.01)
+        active -= 1
+        connector._record_run(
+            entity_name,
+            source="test",
+            ok=True,
+            certificates=0,
+            attempts=1,
+            last_status=200,
+        )
+        return []
+
+    with patch.object(connector, "fetch_entity_certificates", side_effect=fake_fetch):
+        assert await connector.fetch() == []
+
+    assert max_active == 2
+    assert [record["entity"] for record in connector.run_records] == [
+        "CaixaBank",
+        "BBVA",
+        "Correos",
+        "DGT",
+    ]
+    assert connector.last_run_duration_seconds >= 0.01
+
+
+@pytest.mark.asyncio
+async def test_ct_fetch_descarta_ruido_y_propiedades_legitimas() -> None:
+    connector = CertificateTransparencyConnector(target_entities=["CaixaBank"])
+    payload = [
+        {
+            "name_value": "caixabank-alerta.top\nempresa-ajena.example",
+            "issuer_name": "Let's Encrypt",
+            "entry_timestamp": "2026-08-18T10:00:00",
+            "id": 123,
+        },
+        {
+            "name_value": "caixabank.com",
+            "issuer_name": "Let's Encrypt",
+            "entry_timestamp": "2026-08-18T10:00:00",
+            "id": 124,
+        },
+    ]
+
+    with patch.object(
+        connector, "fetch_entity_certificates", new_callable=AsyncMock
+    ) as mock_fetch:
+        mock_fetch.return_value = payload
+        observations = await connector.fetch()
+
+    assert [observation.value for observation in observations] == ["caixabank-alerta.top"]
 
 
 @pytest.mark.asyncio
