@@ -2,6 +2,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from app.connectors import Connector
@@ -141,6 +142,132 @@ async def test_ct_fetch_descarta_ruido_y_propiedades_legitimas() -> None:
         observations = await connector.fetch()
 
     assert [observation.value for observation in observations] == ["caixabank-alerta.top"]
+
+
+@pytest.mark.asyncio
+async def test_phishtank_aporta_dominios_verificados_y_se_cachea() -> None:
+    connector = CertificateTransparencyConnector(target_entities=["BBVA"])
+    csv_payload = (
+        "phish_id,url,phish_detail_url,submission_time,verified,verification_time,online,target\n"
+        "9500160,https://bbva-movil.example/,https://phishtank.test/9500160,"
+        "2026-08-21T12:21:29+00:00,yes,2026-08-21T12:32:49+00:00,yes,"
+        'Banco Bilbao Vizcaya Argentaria\n'
+        "9500161,https://example.net/,https://phishtank.test/9500161,"
+        "2026-08-21T12:21:29+00:00,yes,2026-08-21T12:32:49+00:00,yes,Other\n"
+    )
+    response = httpx.Response(
+        200,
+        content=csv_payload.encode(),
+        request=httpx.Request("GET", connector.phishing_feed_url),
+    )
+
+    with patch.object(
+        httpx.AsyncClient, "get", new_callable=AsyncMock, return_value=response
+    ) as mock_get:
+        async with httpx.AsyncClient() as client:
+            first = await connector._fetch_via_phishtank(get_entity("BBVA"), client)
+            second = await connector._fetch_via_phishtank(get_entity("BBVA"), client)
+
+    assert first is not None
+    assert [row["name_value"] for row in first] == ["bbva-movil.example"]
+    assert second == first
+    assert mock_get.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_feed_phishing_acepta_candidato_sin_emisor_dv() -> None:
+    connector = CertificateTransparencyConnector(target_entities=["BBVA"])
+    payload = [
+        {
+            "name_value": "bbva-movil.example",
+            "issuer_name": "PhishTank verified",
+            "entry_timestamp": "2026-08-21T12:21:29+00:00",
+            "_source": "phishtank",
+            "phish_id": "9500160",
+        }
+    ]
+
+    with patch.object(
+        connector, "fetch_entity_certificates", new_callable=AsyncMock
+    ) as mock_fetch:
+        mock_fetch.return_value = payload
+        observations = await connector.fetch()
+
+    assert len(observations) == 1
+    assert observations[0].value == "bbva-movil.example"
+    assert observations[0].provenance["source"] == "phishtank"
+    assert observations[0].confidence == 0.8
+
+
+@pytest.mark.asyncio
+async def test_feed_se_consulta_si_postgres_devuelve_lista_vacia() -> None:
+    connector = CertificateTransparencyConnector(
+        target_entities=["BBVA"], max_retries=1, backoff_factor=0
+    )
+    response = httpx.Response(
+        502,
+        request=httpx.Request("GET", "https://crt.sh/?q=bbva"),
+    )
+    phishing = [{"name_value": "bbva-movil.example", "_source": "phishtank"}]
+
+    with (
+        patch.object(connector, "_fetch_via_postgres", new_callable=AsyncMock, return_value=[]),
+        patch.object(
+            connector,
+            "_fetch_via_phishtank",
+            new_callable=AsyncMock,
+            return_value=phishing,
+        ),
+    ):
+        async with httpx.AsyncClient() as client:
+            with patch.object(client, "get", new_callable=AsyncMock, return_value=response):
+                result = await connector.fetch_entity_certificates("BBVA", client)
+
+    assert result == phishing
+    assert connector.run_records[0]["source"] == "phishtank"
+
+
+@pytest.mark.asyncio
+async def test_feed_complementa_un_200_de_ct_sin_candidato() -> None:
+    connector = CertificateTransparencyConnector(target_entities=["BBVA"])
+
+    async def fake_ct(entity_name: str, _client: object) -> list[dict[str, object]]:
+        connector._record_run(
+            entity_name,
+            source="crtsh_http",
+            ok=True,
+            certificates=1,
+            attempts=1,
+            last_status=200,
+        )
+        return [
+            {
+                "name_value": "bbva.com",
+                "issuer_name": "Sectigo OV",
+            }
+        ]
+
+    with (
+        patch.object(connector, "fetch_entity_certificates", side_effect=fake_ct),
+        patch.object(
+            connector,
+            "_fetch_via_phishtank",
+            new_callable=AsyncMock,
+            return_value=[
+                {
+                    "name_value": "bbva-movil.example",
+                    "issuer_name": "PhishTank verified",
+                    "entry_timestamp": "2026-08-21T12:21:29+00:00",
+                    "_source": "phishtank",
+                    "phish_id": "9500160",
+                }
+            ],
+        ),
+    ):
+        observations = await connector.fetch()
+
+    assert [observation.value for observation in observations] == ["bbva-movil.example"]
+    assert connector.run_records[0]["source"] == "crtsh_http+phishtank"
 
 
 @pytest.mark.asyncio

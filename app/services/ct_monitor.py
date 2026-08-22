@@ -9,6 +9,7 @@ certificados de campaña fraudulentos (DV recientes en dominios no oficiales).
 from __future__ import annotations
 
 import asyncio
+import csv
 import hashlib
 import json
 import logging
@@ -16,6 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -46,6 +48,8 @@ AUTOMATED_DV_ISSUERS = (
     "google trust services",
     "cloudflare",
 )
+
+PHISHTANK_FEED_URL = "https://data.phishtank.com/data/online-valid.csv"
 
 RISKY_PHISHING_TLDS = (
     ".top",
@@ -176,6 +180,9 @@ class CertificateTransparencyConnector:
         enable_postgres_fallback: bool = True,
         max_concurrency: int = 4,
         min_confidence: float = 0.5,
+        enable_phishing_feed: bool = True,
+        phishing_feed_url: str = PHISHTANK_FEED_URL,
+        phishing_feed_timeout: float = 20.0,
     ) -> None:
         self.target_entities = target_entities or [
             "CaixaBank",
@@ -195,6 +202,13 @@ class CertificateTransparencyConnector:
         self.enable_postgres_fallback = enable_postgres_fallback
         self.max_concurrency = max(1, max_concurrency)
         self.min_confidence = min_confidence
+        self.enable_phishing_feed = enable_phishing_feed
+        self.phishing_feed_url = phishing_feed_url
+        self.phishing_feed_timeout = max(5.0, phishing_feed_timeout)
+        self._phishing_feed_rows: list[dict[str, str]] | None = None
+        self._phishing_feed_loaded = False
+        self._phishing_feed_error: str | None = None
+        self._phishing_feed_lock: asyncio.Lock | None = None
         # Registro de resultado por consulta: distingue "no habia nada" de "no pude mirar".
         self.run_records: list[dict[str, Any]] = []
         self.last_run_duration_seconds = 0.0
@@ -275,12 +289,118 @@ class CertificateTransparencyConnector:
 
         return await asyncio.to_thread(_query)
 
+    async def _fetch_via_phishtank(
+        self,
+        entity: KnownEntity,
+        client: httpx.AsyncClient,
+    ) -> list[dict[str, Any]] | None:
+        """Obtiene dominios verificados de PhishTank como respaldo de disponibilidad.
+
+        PhishTank no es un sustituto de CT: aporta URLs que ya han sido verificadas
+        como phishing. Se usa únicamente cuando crt.sh/Postgres no responden (o
+        devuelven un conjunto vacío), y se filtra por marca o por el campo ``target``
+        del propio feed. El CSV se descarga una sola vez por ronda, aunque fallen las
+        diez consultas de entidades.
+        """
+        if not self.enable_phishing_feed:
+            return None
+
+        if self._phishing_feed_lock is None:
+            self._phishing_feed_lock = asyncio.Lock()
+        async with self._phishing_feed_lock:
+            if not self._phishing_feed_loaded:
+                self._phishing_feed_loaded = True
+                try:
+                    response = await client.get(
+                        self.phishing_feed_url,
+                        headers={"User-Agent": "AlertaClara/1.0 (verified-phishing-feed)"},
+                        timeout=self.phishing_feed_timeout,
+                        follow_redirects=True,
+                    )
+                    response.raise_for_status()
+                    if len(response.content) > 25 * 1024 * 1024:
+                        raise ValueError("feed_demasiado_grande")
+
+                    rows: list[dict[str, str]] = []
+                    for row in csv.DictReader(response.text.splitlines()):
+                        if (
+                            str(row.get("verified", "")).casefold() != "yes"
+                            or str(row.get("online", "")).casefold() != "yes"
+                        ):
+                            continue
+                        raw_url = str(row.get("url", "")).strip()
+                        host = (urlsplit(raw_url).hostname or "").rstrip(".").casefold()
+                        if not host or "." not in host:
+                            continue
+                        rows.append(
+                            {
+                                "domain": host,
+                                "url": raw_url,
+                                "phish_id": str(row.get("phish_id", "")),
+                                "target": str(row.get("target", "")),
+                                "submission_time": str(row.get("submission_time", "")),
+                                "detail_url": str(row.get("phish_detail_url", "")),
+                            }
+                        )
+                    self._phishing_feed_rows = rows
+                except (httpx.HTTPError, ValueError, csv.Error) as exc:
+                    self._phishing_feed_error = type(exc).__name__
+                    logger.warning("No se pudo descargar PhishTank: %s", exc)
+                    self._phishing_feed_rows = None
+
+        rows = self._phishing_feed_rows
+        if rows is None:
+            return None
+
+        entity_tokens = {
+            normalize_token(alias)
+            for alias in (entity.name, *entity.aliases)
+            if len(normalize_token(alias)) >= 3
+        }
+        matches: list[dict[str, Any]] = []
+        for row in rows:
+            host = row["domain"]
+            host_token = normalize_token(host)
+            target = normalize_token(row["target"])
+            target_match = any(
+                token == target or (len(token) >= 4 and token in target)
+                for token in entity_tokens
+                if token
+            )
+            domain_match = any(
+                len(token) >= 4 and token in host_token for token in entity_tokens
+            )
+            if not domain_match and not target_match:
+                continue
+            domain = registrable_domain(host)
+            if not domain:
+                continue
+            if is_official_domain(domain, entity):
+                continue
+            if not references_entity(domain, entity) and not target_match:
+                continue
+            matches.append(
+                {
+                    "id": f"phishtank:{row['phish_id']}:{domain}",
+                    "name_value": domain,
+                    "issuer_name": "PhishTank verified",
+                    "entry_timestamp": row["submission_time"],
+                    "not_before": row["submission_time"],
+                    "common_name": row["url"],
+                    "phish_id": row["phish_id"],
+                    "detail_url": row["detail_url"],
+                    "_target_match": target_match,
+                    "_source": "phishtank",
+                }
+            )
+        return matches
+
     async def fetch_entity_certificates(
         self,
         entity_name: str,
         client: httpx.AsyncClient,
     ) -> list[dict[str, Any]]:
-        """Consulta crt.sh con reintentos, backoff y respaldo por Postgres."""
+        """Consulta crt.sh y usa Postgres/PhishTank cuando el proveedor falla."""
         entity = get_entity(entity_name)
         if not entity:
             self._record_run(
@@ -311,15 +431,17 @@ class CertificateTransparencyConnector:
                         data = response.json()
                         if isinstance(data, list):
                             data = [item for item in data if isinstance(item, dict)]
-                            self._record_run(
-                                entity_name,
-                                source="crtsh_http",
-                                ok=True,
-                                certificates=len(data),
-                                attempts=attempt,
-                                last_status=last_status,
-                            )
-                            return data
+                            if data:
+                                self._record_run(
+                                    entity_name,
+                                    source="crtsh_http",
+                                    ok=True,
+                                    certificates=len(data),
+                                    attempts=attempt,
+                                    last_status=last_status,
+                                )
+                                return data
+                            last_error = "crtsh_sin_certificados"
                     except (ValueError, TypeError):
                         last_error = "respuesta_no_json"
                         logger.warning("crt.sh devolvió respuesta no-JSON para %s", entity_name)
@@ -343,7 +465,7 @@ class CertificateTransparencyConnector:
                 await asyncio.sleep(self.backoff_factor * attempt)
 
         fallback = await self._fetch_via_postgres(search_token)
-        if fallback is not None:
+        if fallback:
             self._record_run(
                 entity_name,
                 source="crtsh_postgres",
@@ -353,6 +475,26 @@ class CertificateTransparencyConnector:
                 last_status=last_status,
             )
             return fallback
+        if fallback == []:
+            last_error = "postgres_sin_certificados"
+
+        # PhishTank no busca por marca en CT, pero sí aporta dominios ya verificados
+        # como phishing. Es mejor evidencia accionable que devolver siempre cero cuando
+        # crt.sh está caído; la procedencia queda explícita en cada observación.
+        entity = get_entity(entity_name)
+        phishing_matches = (
+            await self._fetch_via_phishtank(entity, client) if entity is not None else None
+        )
+        if phishing_matches:
+            self._record_run(
+                entity_name,
+                source="phishtank",
+                ok=True,
+                certificates=len(phishing_matches),
+                attempts=attempts,
+                last_status=last_status,
+            )
+            return phishing_matches
 
         # Ambas vías agotadas: se deja constancia explícita de que se intentaron las dos,
         # para que el registro diario distinga "no había nada" de "no se pudo consultar".
@@ -361,14 +503,21 @@ class CertificateTransparencyConnector:
             if self.enable_postgres_fallback
             else "respaldo_postgres_desactivado"
         )
+        phishing_note = (
+            "feed_phishtank_sin_coincidencias"
+            if phishing_matches == []
+            else f"feed_phishtank_fallido:{self._phishing_feed_error}"
+            if self.enable_phishing_feed
+            else "feed_phishtank_desactivado"
+        )
         self._record_run(
             entity_name,
-            source="crtsh_http+postgres",
+            source="crtsh_http+postgres+phishtank",
             ok=False,
             certificates=0,
             attempts=attempts,
             last_status=last_status,
-            error=f"{last_error or 'sin_respuesta_utilizable'}/{fallback_note}",
+            error=f"{last_error or 'sin_respuesta_utilizable'}/{fallback_note}/{phishing_note}",
         )
         return []
 
@@ -410,6 +559,47 @@ class CertificateTransparencyConnector:
             )
             certs_by_entity = dict(results)
 
+            # PhishTank también se consulta cuando crt.sh respondió correctamente:
+            # un 200 con certificados legítimos no debe ocultar dominios ya verificados
+            # como phishing. El feed está cacheado, así que solo se descarga una vez.
+            records_by_entity = {
+                str(record.get("entity")): record for record in self.run_records
+            }
+            supplement_entities = [
+                entity_name
+                for entity_name in self.target_entities
+                if get_entity(entity_name)
+                and entity_name in records_by_entity
+                and "phishtank" not in str(records_by_entity[entity_name].get("source"))
+            ]
+            if self.enable_phishing_feed and supplement_entities:
+                supplements = await asyncio.gather(
+                    *(
+                        self._fetch_via_phishtank(get_entity(entity_name), client)
+                        for entity_name in supplement_entities
+                    )
+                )
+                for entity_name, feed_rows in zip(
+                    supplement_entities, supplements, strict=True
+                ):
+                    record = records_by_entity[entity_name]
+                    source = str(record.get("source"))
+                    if "+phishtank" not in source:
+                        record["source"] = f"{source}+phishtank"
+                    if feed_rows:
+                        certs_by_entity[entity_name] = [
+                            *certs_by_entity.get(entity_name, []),
+                            *feed_rows,
+                        ]
+                        record["certificates_seen"] = int(
+                            record.get("certificates_seen") or 0
+                        ) + len(feed_rows)
+                    elif feed_rows is None and self._phishing_feed_error:
+                        record["error"] = (
+                            f"{record.get('error') or 'sin_error_ct'}/"
+                            f"feed_phishtank_fallido:{self._phishing_feed_error}"
+                        )
+
             # La concurrencia no debe cambiar el orden probatorio de las entidades.
             entity_order = {name: index for index, name in enumerate(self.target_entities)}
             self.run_records.sort(
@@ -431,6 +621,7 @@ class CertificateTransparencyConnector:
                     if not isinstance(name_value, str):
                         continue
                     issuer_name = str(cert.get("issuer_name") or "")
+                    source = str(cert.get("_source") or "crtsh")
                     entry_ts = parse_ct_timestamp(cert.get("entry_timestamp"))
 
                     for raw_name in name_value.split("\n"):
@@ -445,12 +636,20 @@ class CertificateTransparencyConnector:
                         # Descartar propiedades oficiales legítimas y ruido ajeno.
                         if is_official_domain(dom, entity):
                             continue
-                        if not references_entity(dom, entity):
+                        if not references_entity(dom, entity) and not (
+                            source == "phishtank" and cert.get("_target_match")
+                        ):
                             continue
-                        if not is_campaign_plausible(dom, entity, issuer_name):
+                        if source != "phishtank" and not is_campaign_plausible(
+                            dom, entity, issuer_name
+                        ):
                             continue
 
                         confidence = calculate_ct_risk_score(dom, entity, issuer_name, entry_ts)
+                        if source == "phishtank":
+                            # El feed ya exige verificación y estado online; no depende
+                            # de que el certificado exponga el emisor DV.
+                            confidence = max(confidence, 0.80)
                         if confidence < self.min_confidence:
                             continue
                         seen_domains.add(dom)
@@ -468,11 +667,14 @@ class CertificateTransparencyConnector:
                                 version=self.version,
                                 provenance={
                                     "claimed_entity": entity.name,
+                                    "source": source,
                                     "issuer_name": issuer_name,
                                     "common_name": cert.get("common_name"),
                                     "not_before": cert.get("not_before"),
                                     "not_after": cert.get("not_after"),
                                     "ct_id": cert.get("id"),
+                                    "phish_id": cert.get("phish_id"),
+                                    "feed_detail_url": cert.get("detail_url"),
                                 },
                                 retryable=False,
                             )
@@ -725,6 +927,9 @@ async def sync_ct_monitor(settings: Settings) -> int:
         backoff_factor=settings.ct_monitor_backoff_seconds,
         max_concurrency=settings.ct_monitor_max_concurrency,
         min_confidence=getattr(settings, "ct_min_confidence", 0.5),
+        enable_phishing_feed=settings.enable_phishing_feed,
+        phishing_feed_url=settings.phishing_feed_url,
+        phishing_feed_timeout=settings.phishing_feed_timeout_seconds,
     )
     observations = await connector.fetch()
 

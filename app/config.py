@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     ct_monitor_backoff_seconds: float = 2.0
     ct_monitor_max_concurrency: int = 4
     ct_min_confidence: float = 0.5
+    enable_phishing_feed: bool = True
+    phishing_feed_url: str = "https://data.phishtank.com/data/online-valid.csv"
+    phishing_feed_timeout_seconds: float = 20.0
     enable_cnmc_alias_registry: bool = False
     cnmc_registry_enforcement_date: str = "2026-09-15"
     enable_qr_decode: bool = True

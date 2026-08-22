@@ -57,6 +57,8 @@ jobs:
           CT_MONITOR_MAX_RETRIES: "2"
           CT_MONITOR_BACKOFF_SECONDS: "2"
           CT_MONITOR_MAX_CONCURRENCY: "4"
+          ENABLE_PHISHING_FEED: "true"
+          PHISHING_FEED_TIMEOUT_SECONDS: "20"
         run: |
           python -m app.ct_monitor sync
 
