@@ -1,21 +1,5 @@
 {
-  "updated_at": "2026-08-22T09:41:00.241490+00:00",
-  "daily_files": {
-    "runs/2026-08-19.jsonl": {
-      "sha256": "a82bbec633af4eade55aca92b02f49ef22e69b22f28e275c9aa47bf9a0cdb1c9",
-      "entry_count": 1,
-      "size_bytes": 871
-    },
-    "runs/2026-08-21.jsonl": {
-      "sha256": "06d02a16a1a00e0428c66946c003b8a8f2ac785dc00d37473f7f1fbeb10da0af",
-      "entry_count": 4,
-      "size_bytes": 10103
-    },
-    "runs/2026-08-22.jsonl": {
-      "sha256": "4a13cff293f95b747d9dfcef9e30f2639cb8f24653f9a5953a863ed5b0eebfb1",
-      "entry_count": 1,
-      "size_bytes": 2566
-    }
-  },
-  "total_observations": 6
+  "updated_at": "2026-08-22T11:35:58.028544+00:00",
+  "daily_files": {},
+  "total_observations": 0
 }
