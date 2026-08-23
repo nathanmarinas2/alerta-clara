@@ -42,7 +42,7 @@ jobs:
       - name: Bandit
         run: bandit -r app -ll
       - name: Dependency audit
-        run: pip install pip-audit && pip-audit
+        run: pip install pip-audit && pip-audit -r requirements.lock
       - name: Semgrep baseline
         uses: semgrep/semgrep-action@v1
         with:
