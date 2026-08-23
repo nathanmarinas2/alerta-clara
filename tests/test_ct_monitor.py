@@ -84,6 +84,9 @@ async def test_ct_fetch_limita_concurrencia_y_no_aborta_por_una_entidad() -> Non
     connector = CertificateTransparencyConnector(
         target_entities=["CaixaBank", "BBVA", "Correos", "DGT"],
         max_concurrency=2,
+        # Esta prueba mide solo el límite de concurrencia; los candidatos del
+        # feed verificado se cubren en las pruebas específicas de PhishTank.
+        enable_phishing_feed=False,
     )
     active = 0
     max_active = 0
