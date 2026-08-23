@@ -1,4 +1,4 @@
-FROM python:3.13-slim-bookworm AS runtime
+FROM python:3.13-slim-trixie AS runtime
 
 # OCR se mantiene fuera de la imagen de la API: rapidocr arrastra OpenCV/FFmpeg,
 # aumenta mucho el tamaño y mantiene CVE de librerías multimedia sin parche.
