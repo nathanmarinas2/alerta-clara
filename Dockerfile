@@ -1,4 +1,8 @@
-FROM python:3.12-slim AS runtime
+FROM python:3.13-slim-trixie AS runtime
+
+# OCR se mantiene fuera de la imagen de la API: rapidocr arrastra OpenCV/FFmpeg,
+# aumenta mucho el tamaño y mantiene CVE de librerías multimedia sin parche.
+# app/services/ocr.py degrada de forma explícita si el extra no está instalado.
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -9,9 +13,20 @@ WORKDIR /srv/app
 RUN groupadd --system alerta && useradd --system --gid alerta --home-dir /srv/app alerta
 
 COPY requirements-runtime.lock pyproject.toml README.md ./
+COPY alembic.ini ./
+COPY migrations ./migrations
 COPY models ./models
 COPY app ./app
-RUN python -m pip install --no-deps -r requirements-runtime.lock && python -m pip install --no-deps .
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m pip install --no-deps -r requirements-runtime.lock \
+    && python -m pip install --no-deps . \
+    && python -c "import app.main; from app.services.ocr import extract_text_from_image; \
+assert extract_text_from_image(b'no-es-una-imagen') == '', 'el OCR debe degradar en silencio'; \
+print('API operativa; OCR ausente y degradando correctamente')" \
+    && python -m pip uninstall --yes pip setuptools
 
 USER alerta
 EXPOSE 8000

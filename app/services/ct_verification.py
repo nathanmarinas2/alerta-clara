@@ -9,7 +9,6 @@ Implementa las 4 vías de confirmación y cierre del círculo para Certificate T
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import logging
@@ -18,9 +17,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-
-from app.config import Settings
-from app.entities import get_entity, normalize_token
 
 logger = logging.getLogger(__name__)
 

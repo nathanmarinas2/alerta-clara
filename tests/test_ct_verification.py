@@ -8,7 +8,7 @@ import pytest
 from app.connectors import ConnectorObservation
 from app.database import SessionLocal, create_tables
 from app.models import FeedSnapshot, ThreatIndicator
-from app.services.ct_monitor import append_ct_observations_to_audit_log, store_ct_observations
+from app.services.ct_monitor import append_ct_observations_to_audit_log
 from app.services.ct_verification import (
     calculate_lead_time_metrics,
     cross_reference_threat_feeds,
@@ -62,7 +62,11 @@ def test_append_ct_observations_writes_daily_file_and_manifest(temp_audit_dir: P
     daily_file = append_ct_observations_to_audit_log([obs1, obs2], audit_dir=temp_audit_dir)
     assert daily_file.exists()
 
-    lines = [json.loads(l) for l in daily_file.read_text(encoding="utf-8").splitlines() if l.strip()]
+    lines = [
+        json.loads(line)
+        for line in daily_file.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     assert len(lines) == 2
     assert lines[0]["domain"] == "bbva-seguridad-alerta.xyz"
     assert lines[0]["claimed_entity"] == "BBVA"

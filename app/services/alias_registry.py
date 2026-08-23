@@ -7,13 +7,11 @@ detectar suplantaciones de identidad de forma autoritativa.
 
 from __future__ import annotations
 
-import json
 import logging
 import re
-from datetime import UTC, datetime
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel
 
@@ -59,9 +57,7 @@ def is_alphanumeric_sender(sender: str | None) -> bool:
         return False
     # Si contiene letras o caracteres no puramente numéricos/telefónicos, es un alias
     digits_and_symbols = re.sub(r"[\d\s+\-().]", "", clean)
-    if digits_and_symbols:
-        return True
-    return False
+    return bool(digits_and_symbols)
 
 
 def find_alias_in_registry(
@@ -92,17 +88,6 @@ def verify_sender_alias(
     clean_sender = (sender or "").strip()
     registry = load_alias_registry()
     version = registry.version
-    now = reference_date or datetime.now(UTC)
-
-    # Fecha límite de entrada en vigor obligatoria (15 septiembre 2026)
-    try:
-        enforcement_dt = datetime.fromisoformat(
-            settings.cnmc_registry_enforcement_date
-        ).replace(tzinfo=UTC)
-        is_enforced = now >= enforcement_dt
-    except Exception:
-        is_enforced = False
-
     record = find_alias_in_registry(clean_sender, registry)
 
     if record and record.status == "active":
@@ -119,12 +104,12 @@ def verify_sender_alias(
             authorized_tokens = {
                 normalize_token(auth) for auth in record.authorized_entities
             }
-            holder_tokens = {normalize_token(record.holder_name)}
+            holder_token = normalize_token(record.holder_name)
 
             # Coincide si algún token de la entidad está en los autorizados o en el titular
             is_authorized = bool(
                 entity_tokens & authorized_tokens
-                or any(t in normalize_token(record.holder_name) for t in entity_tokens if len(t) >= 4)
+                or any(t in holder_token for t in entity_tokens if len(t) >= 4)
             )
 
             if not is_authorized:

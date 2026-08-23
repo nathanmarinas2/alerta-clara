@@ -72,7 +72,11 @@ def test_run_log_es_de_solo_anadir(tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_fetch_fallido_deja_registro_no_vacio() -> None:
     """Aunque crt.sh falle para todas las entidades, la ronda queda documentada."""
-    conector = CertificateTransparencyConnector(target_entities=["CaixaBank"])
+    # Esta prueba verifica únicamente que una consulta fallida deja registro;
+    # el feed verificado se prueba por separado y aquí debe permanecer aislado.
+    conector = CertificateTransparencyConnector(
+        target_entities=["CaixaBank"], enable_phishing_feed=False
+    )
 
     with patch.object(
         conector, "fetch_entity_certificates", new_callable=AsyncMock
